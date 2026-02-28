@@ -93,6 +93,8 @@ async function downloadDocument(config: SourceConfig): Promise<string> {
         writeFileSync(outputPath, buffer);
         return outputPath;
       } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`Attempt ${attempt}/${maxAttempts} failed for ${url}: ${reason}`);
         if (attempt === maxAttempts) {
           console.error(`URL failed after ${maxAttempts} attempts: ${url}`);
           break;
