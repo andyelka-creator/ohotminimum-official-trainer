@@ -1,0 +1,52 @@
+name: Nightly Official Update
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  update-official:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run update:official
+        run: npm run update:official
+
+      - name: Check if official hash changed
+        id: hash_diff
+        run: |
+          if git diff --quiet -- data/official_bank.hash data/official_bank.json data/official_versions.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.hash_diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/update-official
+          commit-message: "chore: update official bank"
+          title: "chore: nightly update official question bank"
+          body: |
+            Automated nightly sync of official Минприроды РФ question bank.
+            Includes updated hash and immutable versions log.
+          labels: |
+            automated
+            official-bank

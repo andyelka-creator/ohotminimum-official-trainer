@@ -1,0 +1,8 @@
+{
+  "sourceType": "pdf",
+  "url": "https://example.com/official-bank.pdf",
+  "fallbackUrls": [],
+  "expectedQuestionCount": 257,
+  "checkIntervalHours": 24,
+  "timeoutMs": 20000
+}
