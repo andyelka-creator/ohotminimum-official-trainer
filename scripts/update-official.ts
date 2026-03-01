@@ -9,8 +9,10 @@ import { z } from "zod";
 import { OfficialBankSchema, type OfficialBank, type OfficialQuestion } from "../src/schema.js";
 import { sha256 } from "../src/hash.js";
 
+type SourceType = "pdf" | "html";
+
 type SourceConfig = {
-  sourceType: "pdf";
+  sourceType: SourceType;
   url: string;
   fallbackUrls: string[];
   expectedQuestionCount: number;
@@ -30,7 +32,7 @@ type DiffSummary = {
 };
 
 const sourceConfigSchema = z.object({
-  sourceType: z.literal("pdf"),
+  sourceType: z.enum(["pdf", "html"]),
   url: z.string().url(),
   fallbackUrls: z.array(z.string().url()),
   expectedQuestionCount: z.literal(257),
@@ -51,9 +53,9 @@ async function main(): Promise<void> {
   await mkdir(tmpDir, { recursive: true });
   await mkdir(dataDir, { recursive: true });
 
-  const documentPath = await downloadDocument(config);
-  const text = await extractText(documentPath);
-  const parsed = parseQuestions(text, config.expectedQuestionCount);
+  const sourcePath = await downloadSource(config);
+  const sourceText = await extractSourceText(sourcePath, config.sourceType);
+  const parsed = parseQuestionsBySource(sourceText, config.expectedQuestionCount, config.sourceType);
 
   if (parsed.confidence < 0.98) {
     throw new Error(`Parsing confidence too low: ${parsed.confidence.toFixed(4)} < 0.98`);
@@ -82,15 +84,16 @@ function loadConfig(): SourceConfig {
   return sourceConfigSchema.parse(JSON.parse(raw));
 }
 
-async function downloadDocument(config: SourceConfig): Promise<string> {
+async function downloadSource(config: SourceConfig): Promise<string> {
   const urls = [config.url, ...config.fallbackUrls];
   const maxAttempts = 3;
-  const outputPath = path.join(tmpDir, "official-source.pdf");
+  const extension = config.sourceType === "pdf" ? "pdf" : "html";
+  const outputPath = path.join(tmpDir, `official-source.${extension}`);
 
   for (const url of urls) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const buffer = await fetchWithChecks(url, config.timeoutMs);
+        const buffer = await fetchWithChecks(url, config.timeoutMs, config.sourceType);
         writeFileSync(outputPath, buffer);
         return outputPath;
       } catch (err) {
@@ -109,7 +112,7 @@ async function downloadDocument(config: SourceConfig): Promise<string> {
   throw new Error("All official source URLs failed.");
 }
 
-async function fetchWithChecks(url: string, timeoutMs: number): Promise<Buffer> {
+async function fetchWithChecks(url: string, timeoutMs: number, sourceType: SourceType): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -119,21 +122,22 @@ async function fetchWithChecks(url: string, timeoutMs: number): Promise<Buffer> 
       redirect: "follow",
       headers: {
         "accept-encoding": "identity",
-        accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+        accept: sourceType === "pdf" ? "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8" : "text/html,*/*;q=0.8",
         "user-agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "accept-language": "ru-RU,ru;q=0.9,en;q=0.8",
-        referer: "https://xn--d1ahaoghbejbc5k.xn--p1ai/",
+        referer: "https://www.garant.ru/",
       },
       signal: controller.signal,
     });
 
-    verifyHttpResponse(resp);
+    verifyHttpResponse(resp, sourceType);
 
     const contentLengthHeader = resp.headers.get("content-length");
     if (!contentLengthHeader) {
       throw new Error("Missing content-length header.");
     }
+
     const expectedBytes = Number(contentLengthHeader);
     if (!Number.isFinite(expectedBytes) || expectedBytes < 10_000) {
       throw new Error(`Invalid content-length: ${contentLengthHeader}`);
@@ -153,8 +157,13 @@ async function fetchWithChecks(url: string, timeoutMs: number): Promise<Buffer> 
     if (bytes.length !== expectedBytes) {
       throw new Error(`Partial download detected: ${bytes.length}/${expectedBytes}`);
     }
-    if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+
+    if (sourceType === "pdf" && !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
       throw new Error("Downloaded file is not a valid PDF signature.");
+    }
+
+    if (sourceType === "html" && !bytes.includes(Buffer.from("<html", "utf8"))) {
+      throw new Error("Downloaded file does not look like HTML.");
     }
 
     return bytes;
@@ -163,25 +172,32 @@ async function fetchWithChecks(url: string, timeoutMs: number): Promise<Buffer> 
   }
 }
 
-function verifyHttpResponse(resp: Response): void {
+function verifyHttpResponse(resp: Response, sourceType: SourceType): void {
   if (!resp.ok || resp.status !== 200) {
     throw new Error(`HTTP check failed. status=${resp.status}`);
   }
 
-  const ct = resp.headers.get("content-type") || "";
-  if (!ct.toLowerCase().includes("pdf")) {
-    throw new Error(`Unexpected content-type: ${ct}`);
+  const ct = (resp.headers.get("content-type") || "").toLowerCase();
+  if (sourceType === "pdf" && !ct.includes("pdf")) {
+    throw new Error(`Unexpected content-type for PDF source: ${ct}`);
+  }
+  if (sourceType === "html" && !ct.includes("html")) {
+    throw new Error(`Unexpected content-type for HTML source: ${ct}`);
   }
 }
 
-async function extractText(documentPath: string): Promise<string> {
-  const file = readFileSync(documentPath);
+async function extractSourceText(sourcePath: string, sourceType: SourceType): Promise<string> {
+  if (sourceType === "html") {
+    return htmlToText(readFileSync(sourcePath, "utf8"));
+  }
+
+  const file = readFileSync(sourcePath);
   const extracted = await pdf(file);
   if (extracted.text?.trim()) {
     return extracted.text;
   }
 
-  const cliText = extractTextWithPdftotext(documentPath);
+  const cliText = extractTextWithPdftotext(sourcePath);
   if (cliText.trim()) {
     return cliText;
   }
@@ -206,8 +222,18 @@ function extractTextWithPdftotext(documentPath: string): string {
   return result.stdout || "";
 }
 
-function normalizeText(input: string): string {
-  return input
+function htmlToText(html: string): string {
+  const noScript = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ");
+
+  const withBreaks = noScript
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|section|article|tr|h\d)>/gi, "\n");
+
+  const stripped = withBreaks.replace(/<[^>]+>/g, " ");
+
+  return decodeHtmlEntities(stripped)
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\r/g, "\n")
@@ -215,7 +241,79 @@ function normalizeText(input: string): string {
     .trim();
 }
 
-function parseQuestions(text: string, expectedCount: number): ParsedResult {
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&laquo;/gi, "«")
+    .replace(/&raquo;/gi, "»")
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)));
+}
+
+function parseQuestionsBySource(text: string, expectedCount: number, sourceType: SourceType): ParsedResult {
+  return sourceType === "html" ? parseQuestionsFromGarantText(text, expectedCount) : parseQuestionsFromPdfText(text, expectedCount);
+}
+
+function parseQuestionsFromGarantText(text: string, expectedCount: number): ParsedResult {
+  const normalized = normalizeText(text);
+  const points = [...normalized.matchAll(/(?:^|\n)\s*Вопрос\s+(\d{1,3})\./g)];
+  const questions: OfficialQuestion[] = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const start = points[i].index ?? 0;
+    const end = i + 1 < points.length ? points[i + 1].index ?? normalized.length : normalized.length;
+    const block = normalized.slice(start, end).trim();
+
+    const idMatch = block.match(/^Вопрос\s+(\d{1,3})\./);
+    if (!idMatch) continue;
+    const id = Number(idMatch[1]);
+
+    const body = block.replace(/^Вопрос\s+\d{1,3}\.\s*/, "");
+    const optionRegex = /(?:^|\n)\s*([абвabcАБВABC])\)\s*([\s\S]*?)(?=(?:\n\s*[абвabcАБВABC]\)\s*)|(?:\n\s*Правильный ответ\s*:)|$)/gi;
+    const options = [...body.matchAll(optionRegex)].map((m) => ({
+      label: normalizeChoiceLabel(m[1]),
+      text: normalizeInlineText(m[2]),
+    }));
+
+    if (options.length !== 3) continue;
+    if (options.some((o) => !o.text)) continue;
+
+    const firstOptionIdx = body.search(/\n\s*[абвabcАБВABC]\)\s*/i);
+    if (firstOptionIdx < 0) continue;
+
+    const questionText = normalizeInlineText(body.slice(0, firstOptionIdx));
+    if (!questionText) continue;
+
+    const correctByLetter = body.match(/Правильный ответ\s*:\s*([абвabcАБВABC])\)/i);
+    let correctIndex = -1;
+
+    if (correctByLetter) {
+      const letter = normalizeChoiceLabel(correctByLetter[1]);
+      correctIndex = options.findIndex((o) => o.label === letter);
+    } else {
+      const correctByText = body.match(/Правильный ответ\s*:\s*([^\n]+)/i);
+      if (correctByText) {
+        const expectedText = normalizeAnswerKeyText(correctByText[1]);
+        correctIndex = options.findIndex((o) => isAnswerTextMatch(o.text, expectedText));
+      }
+    }
+
+    if (correctIndex < 0 || correctIndex > 2) continue;
+
+    questions.push({
+      id,
+      text: questionText,
+      answers: options.map((o) => o.text),
+      correctIndex,
+    });
+  }
+
+  return buildConfidence(questions, expectedCount);
+}
+
+function parseQuestionsFromPdfText(text: string, expectedCount: number): ParsedResult {
   const normalized = normalizeText(text);
   const answerKey = extractAnswerKey(normalized);
 
@@ -240,7 +338,7 @@ function parseQuestions(text: string, expectedCount: number): ParsedResult {
 
     if (answerSplit.length < 4) continue;
 
-    const questionText = answerSplit[0].replace(/\s+/g, " ").trim();
+    const questionText = normalizeInlineText(answerSplit[0]);
     const detected = answerSplit.slice(1, 4).map((line) => detectAnswer(line));
     const answersRaw = detected.map((item) => item.text);
     const labels = detected.map((item) => item.label);
@@ -256,6 +354,10 @@ function parseQuestions(text: string, expectedCount: number): ParsedResult {
     questions.push({ id, text: questionText, answers: answersRaw, correctIndex });
   }
 
+  return buildConfidence(questions, expectedCount);
+}
+
+function buildConfidence(questions: OfficialQuestion[], expectedCount: number): ParsedResult {
   const uniqueIds = new Set(questions.map((q) => q.id)).size;
   const idCoverage = uniqueIds / expectedCount;
   const structureQuality = questions.filter((q) => q.answers.length === 3 && q.text.length > 0).length / expectedCount;
@@ -263,8 +365,30 @@ function parseQuestions(text: string, expectedCount: number): ParsedResult {
   const countQuality = Math.min(questions.length / expectedCount, 1);
 
   const confidence = Number((idCoverage * 0.4 + structureQuality * 0.35 + countQuality * 0.15 + orderQuality * 0.1).toFixed(4));
-
   return { questions, confidence };
+}
+
+function normalizeText(input: string): string {
+  return input
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\r/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function normalizeInlineText(input: string): string {
+  return input.replace(/\s+/g, " ").trim();
+}
+
+function normalizeAnswerKeyText(input: string): string {
+  return normalizeInlineText(input.replace(/^([абвabcАБВABC]|[#*\-–—])\)?\s*/i, ""));
+}
+
+function isAnswerTextMatch(optionText: string, keyText: string): boolean {
+  const a = normalizeInlineText(optionText.toLowerCase());
+  const b = normalizeInlineText(keyText.toLowerCase());
+  return a === b || a.startsWith(b) || b.startsWith(a);
 }
 
 function isMostlySequential(questions: OfficialQuestion[]): boolean {
@@ -283,7 +407,7 @@ function detectAnswer(line: string): { label: "A" | "B" | "C"; text: string; isC
   const label = normalizeChoiceLabel(m[1]);
   const withoutPrefix = m[2].trim();
   const isCorrect = /^(\*|\+|\(\+\)|\[верно\])/i.test(withoutPrefix);
-  const text = withoutPrefix.replace(/^(\*|\+|\(\+\)|\[верно\])\s*/i, "").trim();
+  const text = normalizeInlineText(withoutPrefix.replace(/^(\*|\+|\(\+\)|\[верно\])\s*/i, ""));
   return { label, text, isCorrect };
 }
 

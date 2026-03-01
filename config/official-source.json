@@ -1,7 +1,8 @@
 {
-  "sourceType": "pdf",
-  "url": "https://xn--d1ahaoghbejbc5k.xn--p1ai/upload/uf/8d0/g1swcthvxpbls26okv6tyvk9i2pfj65j/Perechen_voprosov_dlya_proverki_znaniy_vkhodyashchikh_v_okhotminimum.pdf",
+  "sourceType": "html",
+  "url": "https://www.garant.ru/products/ipo/prime/doc/412620881/",
   "fallbackUrls": [
+    "https://xn--d1ahaoghbejbc5k.xn--p1ai/upload/uf/8d0/g1swcthvxpbls26okv6tyvk9i2pfj65j/Perechen_voprosov_dlya_proverki_znaniy_vkhodyashchikh_v_okhotminimum.pdf",
     "https://минприродыро.рф/upload/uf/8d0/g1swcthvxpbls26okv6tyvk9i2pfj65j/Perechen_voprosov_dlya_proverki_znaniy_vkhodyashchikh_v_okhotminimum.pdf"
   ],
   "expectedQuestionCount": 257,
