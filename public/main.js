@@ -550,7 +550,7 @@ async function bootstrap() {
     }
 
     questions = payload.questions;
-    statusEl.className = "rounded-xl border border-appaccent bg-apppanel p-4 text-sm";
+    statusEl.classList.add("hidden");
     statusEl.textContent = "";
 
     tabsEl.classList.remove("hidden");
