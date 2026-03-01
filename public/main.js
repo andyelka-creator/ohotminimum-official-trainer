@@ -7,6 +7,11 @@ const tabExamBtn = document.getElementById("tabExam");
 const tabInsightsBtn = document.getElementById("tabInsights");
 
 const trainerEl = document.getElementById("trainer");
+const trainerSwipeAreaEl = document.getElementById("trainerSwipeArea");
+const trainerModeClassicBtn = document.getElementById("trainerModeClassicBtn");
+const trainerModeThemeBtn = document.getElementById("trainerModeThemeBtn");
+const trainerClassicPanelEl = document.getElementById("trainerClassicPanel");
+const trainerThemePanelEl = document.getElementById("trainerThemePanel");
 const questionTextEl = document.getElementById("questionText");
 const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
@@ -50,6 +55,9 @@ let insightsBuilt = false;
 let rulesThemes = [];
 let activeRulesThemeId = "";
 let activeTrainerThemeId = "";
+let trainerMode = "classic";
+let trainerSwipeStartX = 0;
+let trainerSwipeStartY = 0;
 
 const RULE_GROUPS = [
   {
@@ -164,6 +172,41 @@ function setActiveTab(tab) {
   }
 }
 
+function setTrainerMode(mode) {
+  trainerMode = mode === "theme" ? "theme" : "classic";
+  const classic = trainerMode === "classic";
+
+  trainerModeClassicBtn.className = classic ? "tab-btn active" : "tab-btn";
+  trainerModeThemeBtn.className = classic ? "tab-btn" : "tab-btn active";
+  trainerClassicPanelEl.classList.toggle("hidden", !classic);
+  trainerThemePanelEl.classList.toggle("hidden", classic);
+
+  if (!classic) {
+    openedFromRules = false;
+    backToRulesBtn.classList.add("hidden");
+  }
+}
+
+function setupTrainerSwipe() {
+  trainerSwipeAreaEl.addEventListener("touchstart", (event) => {
+    const t = event.changedTouches?.[0];
+    if (!t) return;
+    trainerSwipeStartX = t.clientX;
+    trainerSwipeStartY = t.clientY;
+  }, { passive: true });
+
+  trainerSwipeAreaEl.addEventListener("touchend", (event) => {
+    const t = event.changedTouches?.[0];
+    if (!t) return;
+    const dx = t.clientX - trainerSwipeStartX;
+    const dy = t.clientY - trainerSwipeStartY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+
+    if (dx < 0) setTrainerMode("theme");
+    if (dx > 0) setTrainerMode("classic");
+  }, { passive: true });
+}
+
 function renderQuestion() {
   const q = questions[index];
   if (!q) return;
@@ -190,6 +233,7 @@ function openQuestionById(id, fromRules = false) {
 
   index = nextIndex;
   renderQuestion();
+  setTrainerMode("classic");
   setActiveTab("trainer");
 
   openedFromRules = fromRules;
@@ -1097,6 +1141,7 @@ async function bootstrap() {
     renderExamIdle();
     renderThemeDrillStats();
     renderThemeDrillCurrentQuestion();
+    setTrainerMode("classic");
     setActiveTab("trainer");
   } catch {
     renderNotReady();
@@ -1120,6 +1165,8 @@ nextBtn.addEventListener("click", () => {
 backToRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 startThemeDrillBtn.addEventListener("click", () => startThemeDrill());
 themeDrillNextBtn.addEventListener("click", () => nextThemeDrillQuestion());
+trainerModeClassicBtn.addEventListener("click", () => setTrainerMode("classic"));
+trainerModeThemeBtn.addEventListener("click", () => setTrainerMode("theme"));
 
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
 tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
@@ -1129,5 +1176,7 @@ tabInsightsBtn.addEventListener("click", () => setActiveTab("insights"));
 restartExamBtn.addEventListener("click", () => startExam());
 examNextBtn.addEventListener("click", () => nextExamQuestion());
 finishExamBtn.addEventListener("click", () => finalizeExam("Экзамен завершен досрочно."));
+
+setupTrainerSwipe();
 
 bootstrap();

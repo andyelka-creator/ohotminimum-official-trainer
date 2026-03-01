@@ -53,31 +53,39 @@
           <h2 class="text-xl font-semibold">Тренажер</h2>
           <button id="backToRulesBtn" class="ghost-btn hidden" type="button">← Вернуться к правилам и датам</button>
         </div>
-        <div id="questionText" class="mb-4 text-base leading-relaxed sm:text-lg"></div>
-        <ol id="answers" class="space-y-2"></ol>
-        <div class="mt-4 flex gap-2 mobile-actions">
-          <button id="prevBtn" class="action-btn" type="button">Назад</button>
-          <button id="nextBtn" class="action-btn" type="button">Далее</button>
+        <div id="trainerModeTabs" class="h-scroll-tabs" aria-label="Режим тренажера">
+          <button id="trainerModeClassicBtn" class="tab-btn active" type="button">Тренажер</button>
+          <button id="trainerModeThemeBtn" class="tab-btn" type="button">Тренировка по темам</button>
         </div>
 
-        <div class="mt-6 rounded-xl border border-slate-700 bg-slate-900/35 p-3">
-          <h3 class="text-base font-semibold">Тренировка по темам</h3>
-          <p class="mt-1 text-xs text-appmuted">
-            Мини-экзамен по выбранной теме: каждый вопрос нужно ответить правильно 3 раза подряд.
-          </p>
-          <div class="mt-3">
-            <p class="mb-2 text-sm text-appmuted">Тема:</p>
-            <div id="themeTrainerTabs" class="h-scroll-tabs" aria-label="Темы тренировки"></div>
+        <div id="trainerSwipeArea" class="mt-4">
+          <div id="trainerClassicPanel">
+            <div id="questionText" class="mb-4 text-base leading-relaxed sm:text-lg"></div>
+            <ol id="answers" class="space-y-2"></ol>
+            <div class="mt-4 flex gap-2 mobile-actions">
+              <button id="prevBtn" class="action-btn" type="button">Назад</button>
+              <button id="nextBtn" class="action-btn" type="button">Далее</button>
+            </div>
           </div>
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button id="startThemeDrillBtn" class="action-btn" type="button">Начать тренировку</button>
-          </div>
-          <div id="themeDrillStats" class="mt-3 text-sm text-appmuted"></div>
-          <div id="themeDrillQuestion" class="mt-2 text-base leading-relaxed sm:text-lg"></div>
-          <div id="themeDrillOptions" class="mt-3 grid gap-2"></div>
-          <div id="themeDrillFeedback" class="mt-2 min-h-6 text-sm"></div>
-          <div class="mt-3">
-            <button id="themeDrillNextBtn" class="action-btn" type="button" disabled>Следующий вопрос</button>
+
+          <div id="trainerThemePanel" class="hidden">
+            <p class="mt-1 text-xs text-appmuted">
+              Мини-экзамен по выбранной теме: каждый вопрос нужно ответить правильно 3 раза подряд.
+            </p>
+            <div class="mt-3">
+              <p class="mb-2 text-sm text-appmuted">Тема:</p>
+              <div id="themeTrainerTabs" class="h-scroll-tabs" aria-label="Темы тренировки"></div>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button id="startThemeDrillBtn" class="action-btn" type="button">Начать тренировку</button>
+            </div>
+            <div id="themeDrillStats" class="mt-3 text-sm text-appmuted"></div>
+            <div id="themeDrillQuestion" class="mt-2 text-base leading-relaxed sm:text-lg"></div>
+            <div id="themeDrillOptions" class="mt-3 grid gap-2"></div>
+            <div id="themeDrillFeedback" class="mt-2 min-h-6 text-sm"></div>
+            <div class="mt-3">
+              <button id="themeDrillNextBtn" class="action-btn" type="button" disabled>Следующий вопрос</button>
+            </div>
           </div>
         </div>
       </section>
