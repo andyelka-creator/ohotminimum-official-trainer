@@ -12,14 +12,20 @@
         <h1>Охотничий минимум</h1>
         <p>Официальный тренажер</p>
       </header>
+
       <section id="status" class="status">Loading...</section>
 
       <nav id="tabs" class="tabs hidden" aria-label="Разделы">
         <button id="tabTrainer" class="tab active" type="button">Тренажер</button>
-        <button id="tabMatrix" class="tab" type="button">Матрица правил</button>
+        <button id="tabProhibitions" class="tab" type="button">Запреты</button>
+        <button id="tabExam" class="tab" type="button">Экзамен</button>
       </nav>
 
-      <section id="trainer" class="trainer hidden">
+      <section id="trainer" class="panel hidden">
+        <div class="section-head">
+          <h2>Тренажер</h2>
+          <button id="backToProhibitionsBtn" class="ghost-btn hidden" type="button">← Вернуться к запретам</button>
+        </div>
         <div id="questionText" class="question"></div>
         <ol id="answers" class="answers"></ol>
         <div class="toolbar">
@@ -28,12 +34,34 @@
         </div>
       </section>
 
-      <section id="matrix" class="matrix hidden">
-        <h2>Матрица правил</h2>
-        <p class="matrix-subtitle">Сгруппировано по повторяющимся нормам. Нажмите на номер вопроса для перехода.</p>
-        <div id="matrixGrid" class="matrix-grid"></div>
+      <section id="prohibitions" class="panel hidden">
+        <h2>Запреты</h2>
+        <p class="section-subtitle">Интерактивный список запретов. Нажмите «К вопросу», чтобы открыть связанный вопрос в тренажере.</p>
+        <div id="prohibitionsList" class="list-grid"></div>
+      </section>
+
+      <section id="exam" class="panel hidden">
+        <h2>Экзамен</h2>
+        <div class="exam-controls">
+          <label for="examOrder">Порядок вопросов:</label>
+          <select id="examOrder">
+            <option value="sequential">По порядку</option>
+            <option value="random">Случайно (без повторов)</option>
+          </select>
+          <button id="restartExamBtn" type="button">Начать заново</button>
+        </div>
+
+        <div id="examStats" class="exam-stats"></div>
+        <div id="examQuestion" class="question"></div>
+        <div id="examOptions" class="exam-options"></div>
+        <div id="examFeedback" class="exam-feedback"></div>
+
+        <div class="toolbar">
+          <button id="examNextBtn" type="button" disabled>Далее</button>
+        </div>
       </section>
     </main>
+
     <script type="module" src="./main.js"></script>
   </body>
 </html>

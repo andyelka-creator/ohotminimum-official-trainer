@@ -1,70 +1,41 @@
 const statusEl = document.getElementById("status");
 const tabsEl = document.getElementById("tabs");
+
 const tabTrainerBtn = document.getElementById("tabTrainer");
-const tabMatrixBtn = document.getElementById("tabMatrix");
+const tabProhibitionsBtn = document.getElementById("tabProhibitions");
+const tabExamBtn = document.getElementById("tabExam");
 
 const trainerEl = document.getElementById("trainer");
 const questionTextEl = document.getElementById("questionText");
 const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const backToProhibitionsBtn = document.getElementById("backToProhibitionsBtn");
 
-const matrixEl = document.getElementById("matrix");
-const matrixGridEl = document.getElementById("matrixGrid");
+const prohibitionsEl = document.getElementById("prohibitions");
+const prohibitionsListEl = document.getElementById("prohibitionsList");
+
+const examEl = document.getElementById("exam");
+const examOrderEl = document.getElementById("examOrder");
+const restartExamBtn = document.getElementById("restartExamBtn");
+const examStatsEl = document.getElementById("examStats");
+const examQuestionEl = document.getElementById("examQuestion");
+const examOptionsEl = document.getElementById("examOptions");
+const examFeedbackEl = document.getElementById("examFeedback");
+const examNextBtn = document.getElementById("examNextBtn");
 
 let questions = [];
 let index = 0;
+let openedFromProhibitions = false;
 
-const RULE_MATRIX = [
-  {
-    key: "prohibited-actions",
-    title: "Запреты при осуществлении охоты",
-    description: "Единая запретительная норма в разных практических кейсах.",
-    matcher: (q) => /^При осуществлении охоты запрещается/i.test(q.text),
-  },
-  {
-    key: "adult-males-season",
-    title: "Сроки охоты на взрослых самцов",
-    description: "Одна норма сроков, но разные виды животных.",
-    matcher: (q) => /Срок охоты на взрослых самцов/i.test(q.text),
-  },
-  {
-    key: "when-hunt-time",
-    title: "Сроки по половозрастным группам",
-    description: "Вариации вопроса «в какие сроки охоты осуществляется...».",
-    matcher: (q) => /^В какие сроки охоты осуществляется/i.test(q.text),
-  },
-  {
-    key: "ungulates-purpose",
-    title: "Охота на копытных по целям",
-    description: "Одна рамка регулирования для разных целей охоты.",
-    matcher: (q) => /^Охота на копытных животных в целях/i.test(q.text),
-  },
-  {
-    key: "min-season-duration",
-    title: "Минимальная продолжительность сезона",
-    description: "Одинаковая логика минимального срока по разным видам.",
-    matcher: (q) => /^Минимальная продолжительность сезона охоты/i.test(q.text),
-  },
-  {
-    key: "collective-hunt-docs",
-    title: "Коллективная охота: документы и состав",
-    description: "Требования к составу участников и оформлению.",
-    matcher: (q) => /^При осуществлении коллективной охоты/i.test(q.text),
-  },
-  {
-    key: "bear-hunting-requirements",
-    title: "Охота на медведей: специальные требования",
-    description: "Отдельные обязательные условия именно для медведя.",
-    matcher: (q) => /^При осуществлении охоты на медведей/i.test(q.text),
-  },
-  {
-    key: "protected-zones",
-    title: "Зоны охраны охотничьих ресурсов",
-    description: "Режим ограничений и полномочий в охранных зонах.",
-    matcher: (q) => /^В зонах охраны охотничьих ресурсов/i.test(q.text),
-  },
-];
+const examState = {
+  orderMode: "sequential",
+  queue: [],
+  position: 0,
+  correct: 0,
+  answered: false,
+  selectedIndex: -1,
+};
 
 function renderNotReady() {
   statusEl.className = "status not-ready";
@@ -73,14 +44,27 @@ function renderNotReady() {
 
 function setActiveTab(tab) {
   const trainerActive = tab === "trainer";
+  const prohibitionsActive = tab === "prohibitions";
+  const examActive = tab === "exam";
+
   tabTrainerBtn.classList.toggle("active", trainerActive);
-  tabMatrixBtn.classList.toggle("active", !trainerActive);
+  tabProhibitionsBtn.classList.toggle("active", prohibitionsActive);
+  tabExamBtn.classList.toggle("active", examActive);
+
   trainerEl.classList.toggle("hidden", !trainerActive);
-  matrixEl.classList.toggle("hidden", trainerActive);
+  prohibitionsEl.classList.toggle("hidden", !prohibitionsActive);
+  examEl.classList.toggle("hidden", !examActive);
+
+  if (!trainerActive) {
+    openedFromProhibitions = false;
+    backToProhibitionsBtn.classList.add("hidden");
+  }
 }
 
 function renderQuestion() {
   const q = questions[index];
+  if (!q) return;
+
   questionTextEl.textContent = `${q.id}. ${q.text}`;
   answersEl.innerHTML = "";
 
@@ -95,49 +79,52 @@ function renderQuestion() {
   nextBtn.disabled = index === questions.length - 1;
 }
 
-function openQuestionById(id) {
+function openQuestionById(id, fromProhibitions = false) {
   const nextIndex = questions.findIndex((q) => q.id === id);
   if (nextIndex < 0) return;
+
   index = nextIndex;
   renderQuestion();
   setActiveTab("trainer");
+
+  openedFromProhibitions = fromProhibitions;
+  backToProhibitionsBtn.classList.toggle("hidden", !openedFromProhibitions);
 }
 
-function buildRuleMatrix() {
-  matrixGridEl.innerHTML = "";
+function prohibitionQuestions() {
+  return questions
+    .filter((q) => /^При осуществлении охоты запрещается/i.test(q.text))
+    .sort((a, b) => a.id - b.id);
+}
 
-  for (const rule of RULE_MATRIX) {
-    const matched = questions.filter((q) => rule.matcher(q));
-    if (matched.length === 0) continue;
+function buildProhibitionsList() {
+  prohibitionsListEl.innerHTML = "";
+  const list = prohibitionQuestions();
 
-    const card = document.createElement("article");
-    card.className = "rule-card";
+  for (const q of list) {
+    const item = document.createElement("article");
+    item.className = "list-item";
 
-    const title = document.createElement("h3");
-    title.className = "rule-title";
-    title.textContent = rule.title;
+    const title = document.createElement("p");
+    title.className = "list-item-title";
+    title.textContent = q.answers[q.correctIndex];
 
     const meta = document.createElement("p");
-    meta.className = "rule-meta";
-    meta.textContent = `${rule.description} • ${matched.length} вопросов`;
+    meta.className = "list-item-meta";
+    meta.textContent = `Вопрос #${q.id}`;
 
-    const links = document.createElement("div");
-    links.className = "rule-links";
+    const actions = document.createElement("div");
+    actions.className = "list-actions";
 
-    matched
-      .sort((a, b) => a.id - b.id)
-      .forEach((q) => {
-        const link = document.createElement("button");
-        link.type = "button";
-        link.className = "rule-link";
-        link.textContent = `#${q.id}`;
-        link.title = q.text;
-        link.addEventListener("click", () => openQuestionById(q.id));
-        links.appendChild(link);
-      });
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "list-link";
+    button.textContent = `К вопросу #${q.id}`;
+    button.addEventListener("click", () => openQuestionById(q.id, true));
 
-    card.append(title, meta, links);
-    matrixGridEl.appendChild(card);
+    actions.appendChild(button);
+    item.append(title, meta, actions);
+    prohibitionsListEl.appendChild(item);
   }
 }
 
@@ -213,6 +200,120 @@ async function loadFromStaticFiles() {
   return { questions: parsedBank, hash: expectedHash };
 }
 
+function shuffled(items) {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function startExam() {
+  examState.orderMode = examOrderEl.value;
+  const base = questions.map((_, i) => i);
+  examState.queue = examState.orderMode === "random" ? shuffled(base) : base;
+  examState.position = 0;
+  examState.correct = 0;
+  examState.answered = false;
+  examState.selectedIndex = -1;
+  renderExam();
+}
+
+function currentExamQuestion() {
+  const idx = examState.queue[examState.position];
+  return questions[idx] || null;
+}
+
+function renderExamStats() {
+  examStatsEl.textContent = `Вопрос ${Math.min(examState.position + 1, questions.length)} / ${questions.length} • Верных: ${examState.correct}`;
+}
+
+function setFeedback(text, type = "") {
+  examFeedbackEl.textContent = text;
+  examFeedbackEl.classList.remove("good", "bad");
+  if (type) examFeedbackEl.classList.add(type);
+}
+
+function renderExam() {
+  renderExamStats();
+  examOptionsEl.innerHTML = "";
+  examNextBtn.disabled = true;
+  setFeedback("");
+
+  if (examState.position >= questions.length) {
+    examQuestionEl.textContent = `Экзамен завершен. Результат: ${examState.correct} из ${questions.length}.`;
+    return;
+  }
+
+  const q = currentExamQuestion();
+  if (!q) return;
+
+  examQuestionEl.textContent = `${q.id}. ${q.text}`;
+
+  q.answers.forEach((answer, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "exam-option";
+    btn.textContent = answer;
+    btn.disabled = examState.answered;
+    btn.addEventListener("click", () => submitExamAnswer(i));
+    examOptionsEl.appendChild(btn);
+  });
+}
+
+function applyExamResultStyles(q, selected) {
+  const buttons = [...examOptionsEl.querySelectorAll(".exam-option")];
+  buttons.forEach((btn, i) => {
+    btn.disabled = true;
+    if (selected === q.correctIndex && i === q.correctIndex) {
+      btn.classList.add("correct");
+      return;
+    }
+
+    if (selected !== q.correctIndex) {
+      if (i === q.correctIndex) {
+        btn.classList.add("correct");
+      } else {
+        btn.classList.add("strike");
+      }
+      if (i === selected) {
+        btn.classList.add("incorrect");
+      }
+    }
+  });
+}
+
+function submitExamAnswer(selectedIndex) {
+  if (examState.answered || examState.position >= questions.length) return;
+
+  examState.answered = true;
+  examState.selectedIndex = selectedIndex;
+
+  const q = currentExamQuestion();
+  if (!q) return;
+
+  if (selectedIndex === q.correctIndex) {
+    examState.correct += 1;
+    setFeedback("Верно.", "good");
+  } else {
+    setFeedback("Неверно. Показан правильный ответ.", "bad");
+  }
+
+  applyExamResultStyles(q, selectedIndex);
+  examNextBtn.disabled = false;
+  renderExamStats();
+}
+
+function nextExamQuestion() {
+  if (!examState.answered) return;
+
+  examState.position += 1;
+  examState.answered = false;
+  examState.selectedIndex = -1;
+  renderExam();
+}
+
 async function bootstrap() {
   try {
     let payload;
@@ -229,11 +330,13 @@ async function bootstrap() {
 
     tabsEl.classList.remove("hidden");
     trainerEl.classList.remove("hidden");
-    matrixEl.classList.remove("hidden");
+    prohibitionsEl.classList.remove("hidden");
+    examEl.classList.remove("hidden");
 
-    buildRuleMatrix();
-    setActiveTab("trainer");
+    buildProhibitionsList();
     renderQuestion();
+    startExam();
+    setActiveTab("trainer");
   } catch {
     renderNotReady();
   }
@@ -253,7 +356,16 @@ nextBtn.addEventListener("click", () => {
   }
 });
 
+backToProhibitionsBtn.addEventListener("click", () => {
+  setActiveTab("prohibitions");
+});
+
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
-tabMatrixBtn.addEventListener("click", () => setActiveTab("matrix"));
+tabProhibitionsBtn.addEventListener("click", () => setActiveTab("prohibitions"));
+tabExamBtn.addEventListener("click", () => setActiveTab("exam"));
+
+restartExamBtn.addEventListener("click", () => startExam());
+examOrderEl.addEventListener("change", () => startExam());
+examNextBtn.addEventListener("click", () => nextExamQuestion());
 
 bootstrap();
