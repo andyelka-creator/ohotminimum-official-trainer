@@ -53,9 +53,9 @@ async function main(): Promise<void> {
   await mkdir(tmpDir, { recursive: true });
   await mkdir(dataDir, { recursive: true });
 
-  const sourcePath = await downloadSource(config);
-  const sourceText = await extractSourceText(sourcePath, config.sourceType);
-  const parsed = parseQuestionsBySource(sourceText, config.expectedQuestionCount, config.sourceType);
+  const downloaded = await downloadSource(config);
+  const sourceText = await extractSourceText(downloaded.path, downloaded.detectedType);
+  const parsed = parseQuestionsBySource(sourceText, config.expectedQuestionCount, downloaded.detectedType);
 
   if (parsed.confidence < 0.98) {
     throw new Error(`Parsing confidence too low: ${parsed.confidence.toFixed(4)} < 0.98`);
@@ -84,18 +84,17 @@ function loadConfig(): SourceConfig {
   return sourceConfigSchema.parse(JSON.parse(raw));
 }
 
-async function downloadSource(config: SourceConfig): Promise<string> {
+async function downloadSource(config: SourceConfig): Promise<{ path: string; detectedType: SourceType }> {
   const urls = [config.url, ...config.fallbackUrls];
   const maxAttempts = 3;
-  const extension = config.sourceType === "pdf" ? "pdf" : "html";
-  const outputPath = path.join(tmpDir, `official-source.${extension}`);
 
   for (const url of urls) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const buffer = await fetchWithChecks(url, config.timeoutMs, config.sourceType);
-        writeFileSync(outputPath, buffer);
-        return outputPath;
+        const fetched = await fetchWithChecks(url, config.timeoutMs, config.sourceType);
+        const outputPath = path.join(tmpDir, `official-source.${fetched.detectedType}`);
+        writeFileSync(outputPath, fetched.buffer);
+        return { path: outputPath, detectedType: fetched.detectedType };
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         console.error(`Attempt ${attempt}/${maxAttempts} failed for ${url}: ${reason}`);
@@ -112,7 +111,11 @@ async function downloadSource(config: SourceConfig): Promise<string> {
   throw new Error("All official source URLs failed.");
 }
 
-async function fetchWithChecks(url: string, timeoutMs: number, sourceType: SourceType): Promise<Buffer> {
+async function fetchWithChecks(
+  url: string,
+  timeoutMs: number,
+  preferredType: SourceType
+): Promise<{ buffer: Buffer; detectedType: SourceType }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -122,7 +125,7 @@ async function fetchWithChecks(url: string, timeoutMs: number, sourceType: Sourc
       redirect: "follow",
       headers: {
         "accept-encoding": "identity",
-        accept: sourceType === "pdf" ? "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8" : "text/html,*/*;q=0.8",
+        accept: preferredType === "pdf" ? "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8" : "text/html,*/*;q=0.8",
         "user-agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "accept-language": "ru-RU,ru;q=0.9,en;q=0.8",
@@ -131,15 +134,12 @@ async function fetchWithChecks(url: string, timeoutMs: number, sourceType: Sourc
       signal: controller.signal,
     });
 
-    verifyHttpResponse(resp, sourceType);
+    const detectedType = detectSourceType(resp);
+    verifyHttpResponse(resp, detectedType);
 
     const contentLengthHeader = resp.headers.get("content-length");
-    if (!contentLengthHeader) {
-      throw new Error("Missing content-length header.");
-    }
-
-    const expectedBytes = Number(contentLengthHeader);
-    if (!Number.isFinite(expectedBytes) || expectedBytes < 10_000) {
+    const expectedBytes = contentLengthHeader ? Number(contentLengthHeader) : NaN;
+    if (contentLengthHeader && (!Number.isFinite(expectedBytes) || expectedBytes < 10_000)) {
       throw new Error(`Invalid content-length: ${contentLengthHeader}`);
     }
 
@@ -154,19 +154,23 @@ async function fetchWithChecks(url: string, timeoutMs: number, sourceType: Sourc
     const bytes = readFileSync(tmpPath);
     await rm(tmpPath);
 
-    if (bytes.length !== expectedBytes) {
+    if (Number.isFinite(expectedBytes) && bytes.length !== expectedBytes) {
       throw new Error(`Partial download detected: ${bytes.length}/${expectedBytes}`);
     }
 
-    if (sourceType === "pdf" && !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    if (detectedType === "pdf" && !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
       throw new Error("Downloaded file is not a valid PDF signature.");
     }
 
-    if (sourceType === "html" && !bytes.includes(Buffer.from("<html", "utf8"))) {
+    if (detectedType === "html" && bytes.length < 10_000) {
+      throw new Error(`HTML payload too small: ${bytes.length} bytes`);
+    }
+
+    if (detectedType === "html" && !bytes.includes(Buffer.from("<html", "utf8"))) {
       throw new Error("Downloaded file does not look like HTML.");
     }
 
-    return bytes;
+    return { buffer: bytes, detectedType };
   } finally {
     clearTimeout(timer);
   }
@@ -184,6 +188,13 @@ function verifyHttpResponse(resp: Response, sourceType: SourceType): void {
   if (sourceType === "html" && !ct.includes("html")) {
     throw new Error(`Unexpected content-type for HTML source: ${ct}`);
   }
+}
+
+function detectSourceType(resp: Response): SourceType {
+  const ct = (resp.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("pdf")) return "pdf";
+  if (ct.includes("html")) return "html";
+  throw new Error(`Unsupported content-type: ${ct || "<empty>"}`);
 }
 
 async function extractSourceText(sourcePath: string, sourceType: SourceType): Promise<string> {
