@@ -72,6 +72,10 @@ const examState = {
   position: 0,
   correct: 0,
   answered: false,
+  startedAt: 0,
+  finishedAt: 0,
+  autoNextTimeoutId: null,
+  statsTickerId: null,
 };
 
 function answerPrefix(index) {
@@ -399,13 +403,37 @@ function shuffled(items) {
   return out;
 }
 
+function clearExamTimers() {
+  if (examState.autoNextTimeoutId) {
+    clearTimeout(examState.autoNextTimeoutId);
+    examState.autoNextTimeoutId = null;
+  }
+  if (examState.statsTickerId) {
+    clearInterval(examState.statsTickerId);
+    examState.statsTickerId = null;
+  }
+}
+
+function formatDurationMs(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function startExam() {
+  clearExamTimers();
   examState.orderMode = examOrderEl.value;
   const base = questions.map((_, i) => i);
   examState.queue = examState.orderMode === "random" ? shuffled(base) : base;
   examState.position = 0;
   examState.correct = 0;
   examState.answered = false;
+  examState.startedAt = Date.now();
+  examState.finishedAt = 0;
+  examState.statsTickerId = setInterval(() => {
+    renderExamStats();
+  }, 1000);
   renderExam();
 }
 
@@ -415,7 +443,9 @@ function currentExamQuestion() {
 }
 
 function renderExamStats() {
-  examStatsEl.textContent = `Вопрос ${Math.min(examState.position + 1, questions.length)} / ${questions.length} • Верных: ${examState.correct}`;
+  const end = examState.finishedAt || Date.now();
+  const elapsed = examState.startedAt ? formatDurationMs(end - examState.startedAt) : "00:00";
+  examStatsEl.textContent = `Вопрос ${Math.min(examState.position + 1, questions.length)} / ${questions.length} • Верных: ${examState.correct} • Время: ${elapsed}`;
 }
 
 function setFeedback(text, type = "") {
@@ -427,10 +457,20 @@ function renderExam() {
   renderExamStats();
   examOptionsEl.innerHTML = "";
   examNextBtn.disabled = true;
+  examNextBtn.textContent = "Далее";
   setFeedback("");
 
   if (examState.position >= questions.length) {
-    examQuestionEl.textContent = `Экзамен завершен. Результат: ${examState.correct} из ${questions.length}.`;
+    if (!examState.finishedAt) {
+      examState.finishedAt = Date.now();
+      if (examState.statsTickerId) {
+        clearInterval(examState.statsTickerId);
+        examState.statsTickerId = null;
+      }
+      renderExamStats();
+    }
+    const elapsed = formatDurationMs(examState.finishedAt - examState.startedAt);
+    examQuestionEl.textContent = `Экзамен завершен. Результат: ${examState.correct} из ${questions.length}. Время: ${elapsed}.`;
     return;
   }
 
@@ -489,10 +529,19 @@ function submitExamAnswer(selectedIndex) {
   applyExamResultStyles(q, selectedIndex);
   examNextBtn.disabled = false;
   renderExamStats();
+
+  examState.autoNextTimeoutId = setTimeout(() => {
+    examState.autoNextTimeoutId = null;
+    nextExamQuestion();
+  }, 3000);
 }
 
 function nextExamQuestion() {
   if (!examState.answered) return;
+  if (examState.autoNextTimeoutId) {
+    clearTimeout(examState.autoNextTimeoutId);
+    examState.autoNextTimeoutId = null;
+  }
   examState.position += 1;
   examState.answered = false;
   renderExam();
