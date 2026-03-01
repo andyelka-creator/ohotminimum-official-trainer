@@ -1239,7 +1239,9 @@ function buildInsights() {
   let strictLongest = 0;
   let longestOrTie = 0;
   const byPosition = [0, 0, 0];
-  const memorizationDateCount = questions.filter((q) => isMemorizationDateQuestion(q)).length;
+  const memorizationDateQuestions = questions.filter((q) => isMemorizationDateQuestion(q));
+  const memorizationDateCount = memorizationDateQuestions.length;
+  const memorizationByPosition = [0, 0, 0];
 
   for (const q of questions) {
     const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
@@ -1254,6 +1256,9 @@ function buildInsights() {
     }
     byPosition[q.correctIndex] += 1;
   }
+  for (const q of memorizationDateQuestions) {
+    memorizationByPosition[q.correctIndex] += 1;
+  }
 
   const block = document.createElement("article");
   block.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-4";
@@ -1261,6 +1266,9 @@ function buildInsights() {
     <p class="text-sm">По вашему текущему банку (${total} вопросов):</p>
     <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
       <li>вопросы на заучивание конкретных дат/сроков: <strong>${memorizationDateCount} / ${total}</strong> (≈ ${pct(memorizationDateCount, total)}%)</li>
+    </ul>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <li>распределение правильных внутри этих вопросов: а — <strong>${memorizationByPosition[0]}</strong> (${pct(memorizationByPosition[0], memorizationDateCount)}%), б — <strong>${memorizationByPosition[1]}</strong> (${pct(memorizationByPosition[1], memorizationDateCount)}%), в — <strong>${memorizationByPosition[2]}</strong> (${pct(memorizationByPosition[2], memorizationDateCount)}%)</li>
     </ul>
     <p class="mt-3 text-xs text-appmuted">Критерий: вопросы о сроках начала/окончания охоты и длительности сезона.</p>
     <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
