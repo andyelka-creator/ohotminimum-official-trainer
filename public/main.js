@@ -990,7 +990,7 @@ function renderAntiHeuristicPanel() {
 
     const answerText = document.createElement("p");
     answerText.className = "mt-2 text-sm";
-    answerText.textContent = `Правильный ответ: ${q.answers[q.correctIndex]}`;
+    answerText.textContent = `Правильный ответ (${answerPrefix(q.correctIndex)}): ${q.answers[q.correctIndex]}`;
 
     const actions = document.createElement("div");
     actions.className = "mt-2";
