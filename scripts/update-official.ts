@@ -199,7 +199,7 @@ function detectSourceType(resp: Response): SourceType {
 
 async function extractSourceText(sourcePath: string, sourceType: SourceType): Promise<string> {
   if (sourceType === "html") {
-    return htmlToText(readFileSync(sourcePath, "utf8"));
+    return htmlToText(decodeHtmlBytes(readFileSync(sourcePath)));
   }
 
   const file = readFileSync(sourcePath);
@@ -214,6 +214,20 @@ async function extractSourceText(sourcePath: string, sourceType: SourceType): Pr
   }
 
   throw new Error("No text extracted from PDF.");
+}
+
+function decodeHtmlBytes(bytes: Buffer): string {
+  // Read early bytes as latin1 just to detect charset declaration safely.
+  const probe = bytes.subarray(0, Math.min(bytes.length, 8192)).toString("latin1");
+  const charsetMatch = probe.match(/charset\s*=\s*["']?\s*([a-z0-9._-]+)/i);
+  const charset = (charsetMatch?.[1] || "utf-8").toLowerCase();
+  const normalized = charset === "windows-1251" || charset === "cp1251" ? "windows-1251" : "utf-8";
+
+  try {
+    return new TextDecoder(normalized).decode(bytes);
+  } catch {
+    return bytes.toString("utf8");
+  }
 }
 
 function extractTextWithPdftotext(documentPath: string): string {
