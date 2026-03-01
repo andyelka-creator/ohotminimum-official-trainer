@@ -23,6 +23,7 @@ const examCountEl = document.getElementById("examCount");
 const minutesPerQuestionEl = document.getElementById("minutesPerQuestion");
 const restartExamBtn = document.getElementById("restartExamBtn");
 const examStatsEl = document.getElementById("examStats");
+const examQuestionTimerEl = document.getElementById("examQuestionTimer");
 const examQuestionEl = document.getElementById("examQuestion");
 const examOptionsEl = document.getElementById("examOptions");
 const examFeedbackEl = document.getElementById("examFeedback");
@@ -74,6 +75,8 @@ const examState = {
   questionCount: 100,
   minutesPerQuestion: 1,
   durationMs: 0,
+  questionDurationMs: 0,
+  questionStartedAt: 0,
   queue: [],
   position: 0,
   correct: 0,
@@ -81,6 +84,8 @@ const examState = {
   startedAt: 0,
   finishedAt: 0,
   finishedReason: "",
+  autoNextTimeoutId: null,
+  autoNextIntervalId: null,
   statsTickerId: null,
 };
 
@@ -410,6 +415,14 @@ function shuffled(items) {
 }
 
 function clearExamTimers() {
+  if (examState.autoNextTimeoutId) {
+    clearTimeout(examState.autoNextTimeoutId);
+    examState.autoNextTimeoutId = null;
+  }
+  if (examState.autoNextIntervalId) {
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }
   if (examState.statsTickerId) {
     clearInterval(examState.statsTickerId);
     examState.statsTickerId = null;
@@ -430,6 +443,11 @@ function elapsedMs() {
 
 function remainingMs() {
   return Math.max(0, examState.durationMs - elapsedMs());
+}
+
+function questionRemainingMs() {
+  if (!examState.questionStartedAt) return 0;
+  return Math.max(0, examState.questionDurationMs - (Date.now() - examState.questionStartedAt));
 }
 
 function normalizeQuestionCount(rawCount) {
@@ -455,6 +473,7 @@ function startExam() {
   examState.questionCount = normalizeQuestionCount(Number(examCountEl.value));
   examState.minutesPerQuestion = normalizeMinutesPerQuestion(Number(minutesPerQuestionEl.value));
   examState.durationMs = examState.questionCount * examState.minutesPerQuestion * 60 * 1000;
+  examState.questionDurationMs = examState.minutesPerQuestion * 60 * 1000;
 
   const cappedCount = Math.min(examState.questionCount, questions.length);
   const allIndexes = questions.map((_, i) => i);
@@ -467,6 +486,7 @@ function startExam() {
   examState.startedAt = Date.now();
   examState.finishedAt = 0;
   examState.finishedReason = "";
+  examState.questionStartedAt = 0;
 
   examCountEl.value = String(examState.questionCount);
   minutesPerQuestionEl.value = String(examState.minutesPerQuestion);
@@ -476,7 +496,12 @@ function startExam() {
       finalizeExam("Время истекло.");
       return;
     }
+    if (!examState.answered && questionRemainingMs() <= 0 && examState.position < examState.queue.length) {
+      handleQuestionTimeout();
+      return;
+    }
     renderExamStats();
+    renderQuestionTimer();
   }, 1000);
   renderExam();
 }
@@ -495,6 +520,18 @@ function renderExamStats() {
   examStatsEl.textContent = `Вопрос ${current} / ${total} • Отвечено: ${answeredCount} • Верных: ${examState.correct} • Для сдачи: ${needed} • Осталось: ${left}`;
 }
 
+function renderQuestionTimer() {
+  if (examState.finishedAt || examState.position >= examState.queue.length) {
+    examQuestionTimerEl.textContent = "";
+    return;
+  }
+  if (examState.answered) {
+    examQuestionTimerEl.textContent = "";
+    return;
+  }
+  examQuestionTimerEl.textContent = `На текущий вопрос осталось: ${formatDurationMs(questionRemainingMs())}`;
+}
+
 function setFeedback(text, type = "") {
   examFeedbackEl.textContent = text;
   examFeedbackEl.className = `mt-3 min-h-6 text-sm ${type === "good" ? "text-appaccent" : type === "bad" ? "text-appdanger" : ""}`;
@@ -502,6 +539,8 @@ function setFeedback(text, type = "") {
 
 function renderExam() {
   renderExamStats();
+  examState.questionStartedAt = Date.now();
+  renderQuestionTimer();
   examOptionsEl.innerHTML = "";
   examNextBtn.disabled = true;
   examNextBtn.textContent = "Далее";
@@ -533,7 +572,7 @@ function applyExamResultStyles(_q, selected) {
   buttons.forEach((btn, i) => {
     btn.disabled = true;
     if (i === selected) {
-      btn.classList.add("correct");
+      btn.classList.add("incorrect");
     }
   });
 }
@@ -547,19 +586,99 @@ function submitExamAnswer(selectedIndex) {
 
   if (selectedIndex === q.correctIndex) {
     examState.correct += 1;
+    setFeedback("Верно.", "good");
+  } else {
+    setFeedback("Неверно.", "bad");
   }
-  setFeedback("Ответ сохранен. Нажмите «Далее».", "good");
 
   applyExamResultStyles(q, selectedIndex);
+  if (selectedIndex !== q.correctIndex) {
+    const buttons = [...examOptionsEl.querySelectorAll(".exam-option")];
+    const rightBtn = buttons[q.correctIndex];
+    if (rightBtn) {
+      rightBtn.classList.remove("incorrect");
+      rightBtn.classList.add("correct");
+    }
+  } else {
+    const buttons = [...examOptionsEl.querySelectorAll(".exam-option")];
+    const selectedBtn = buttons[selectedIndex];
+    if (selectedBtn) {
+      selectedBtn.classList.remove("incorrect");
+      selectedBtn.classList.add("correct");
+    }
+  }
   examNextBtn.disabled = false;
   renderExamStats();
+  renderQuestionTimer();
+
+  let remaining = 3;
+  examNextBtn.textContent = `Далее (${remaining})`;
+  examState.autoNextIntervalId = setInterval(() => {
+    remaining -= 1;
+    if (remaining > 0) {
+      examNextBtn.textContent = `Далее (${remaining})`;
+      return;
+    }
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }, 1000);
+
+  examState.autoNextTimeoutId = setTimeout(() => {
+    examState.autoNextTimeoutId = null;
+    nextExamQuestion();
+  }, 3000);
 }
 
 function nextExamQuestion() {
   if (!examState.answered || examState.finishedAt) return;
+  if (examState.autoNextTimeoutId) {
+    clearTimeout(examState.autoNextTimeoutId);
+    examState.autoNextTimeoutId = null;
+  }
+  if (examState.autoNextIntervalId) {
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }
   examState.position += 1;
   examState.answered = false;
   renderExam();
+}
+
+function handleQuestionTimeout() {
+  if (examState.answered || examState.finishedAt || examState.position >= examState.queue.length) return;
+  examState.answered = true;
+  setFeedback("Время на вопрос истекло. Ответ засчитан как неверный.", "bad");
+
+  const buttons = [...examOptionsEl.querySelectorAll(".exam-option")];
+  buttons.forEach((btn) => {
+    btn.disabled = true;
+    btn.classList.add("strike");
+  });
+  const q = currentExamQuestion();
+  if (q && buttons[q.correctIndex]) {
+    buttons[q.correctIndex].classList.remove("strike");
+    buttons[q.correctIndex].classList.add("correct");
+  }
+
+  examNextBtn.disabled = false;
+  renderExamStats();
+  renderQuestionTimer();
+
+  let remaining = 3;
+  examNextBtn.textContent = `Далее (${remaining})`;
+  examState.autoNextIntervalId = setInterval(() => {
+    remaining -= 1;
+    if (remaining > 0) {
+      examNextBtn.textContent = `Далее (${remaining})`;
+      return;
+    }
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }, 1000);
+  examState.autoNextTimeoutId = setTimeout(() => {
+    examState.autoNextTimeoutId = null;
+    nextExamQuestion();
+  }, 3000);
 }
 
 function finalizeExam(reason) {
@@ -578,6 +697,7 @@ function finalizeExam(reason) {
   examOptionsEl.innerHTML = "";
   examNextBtn.disabled = true;
   setFeedback("");
+  examQuestionTimerEl.textContent = "";
   renderExamStats();
   examQuestionEl.textContent = `${reason} Результат: ${examState.correct} из ${total} (${percent}%). Проходной балл: ${needed}. Статус: ${passed ? "СДАНО" : "НЕ СДАНО"}. Затраченное время: ${elapsed}.`;
 }
