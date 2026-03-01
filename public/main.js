@@ -132,6 +132,38 @@ function openQuestionById(id, fromRules = false) {
   backToRulesBtn.classList.toggle("hidden", !openedFromRules);
 }
 
+function inferObjectLabel(q) {
+  const text = `${q.text} ${q.answers[q.correctIndex]}`.toLowerCase();
+  const pairs = [
+    ["косул", "Косуля"],
+    ["лось", "Лось"],
+    ["олен", "Олень"],
+    ["лан", "Лань"],
+    ["кабан", "Кабан"],
+    ["медвед", "Медведь"],
+    ["копытн", "Копытные"],
+    ["болотно-лугов", "Болотно-луговая дичь"],
+    ["водоплава", "Водоплавающая дичь"],
+    ["боров", "Боровая дичь"],
+    ["пушн", "Пушные животные"],
+    ["коллективной охоты", "Коллективная охота"],
+  ];
+
+  for (const [needle, label] of pairs) {
+    if (text.includes(needle)) return label;
+  }
+  return "Общий режим охоты";
+}
+
+function inferNormType(q) {
+  const t = q.text.toLowerCase();
+  if (t.includes("запрещается")) return "Запрет";
+  if (t.includes("срок") || t.includes("в какие сроки") || t.includes("продолжительность")) return "Срок";
+  if (t.includes("обязан") || t.includes("должен") || t.includes("требуется")) return "Обязанность";
+  if (t.includes("документ") || t.includes("путевк") || t.includes("список лиц")) return "Документы";
+  return "Правило";
+}
+
 function buildRuleGroups() {
   rulesGridEl.innerHTML = "";
 
@@ -157,9 +189,26 @@ function buildRuleGroups() {
       const row = document.createElement("div");
       row.className = "rounded-lg border border-slate-700 bg-slate-950/40 p-3";
 
+      const chips = document.createElement("div");
+      chips.className = "mb-2 flex flex-wrap gap-2";
+
+      const objectChip = document.createElement("span");
+      objectChip.className = "rounded-full border border-slate-600 px-2 py-0.5 text-xs text-appmuted";
+      objectChip.textContent = inferObjectLabel(q);
+
+      const ruleChip = document.createElement("span");
+      ruleChip.className = "rounded-full border border-emerald-700 px-2 py-0.5 text-xs text-emerald-300";
+      ruleChip.textContent = inferNormType(q);
+
+      chips.append(objectChip, ruleChip);
+
       const itemTitle = document.createElement("p");
-      itemTitle.className = "text-sm";
-      itemTitle.textContent = q.answers[q.correctIndex];
+      itemTitle.className = "text-sm text-appmuted";
+      itemTitle.textContent = `Вопрос: ${q.text}`;
+
+      const answerText = document.createElement("p");
+      answerText.className = "mt-2 text-sm";
+      answerText.textContent = `Правильный ответ: ${q.answers[q.correctIndex]}`;
 
       const itemMeta = document.createElement("p");
       itemMeta.className = "mt-1 text-xs text-appmuted";
@@ -175,7 +224,7 @@ function buildRuleGroups() {
       openBtn.addEventListener("click", () => openQuestionById(q.id, true));
 
       actions.appendChild(openBtn);
-      row.append(itemTitle, itemMeta, actions);
+      row.append(chips, itemTitle, answerText, itemMeta, actions);
       list.appendChild(row);
     });
 
@@ -191,6 +240,15 @@ function extractPeriodText(answer) {
   const yearRange = clean.match(/с\s+\d{1,2}\s+[а-яё]+\s+по\s+\d{1,2}\s+[а-яё]+|по\s+\d{1,2}\s+[а-яё]+/i);
   if (yearRange) return yearRange[0];
   return clean;
+}
+
+function inferDateCategory(q) {
+  const t = q.text.toLowerCase();
+  if (t.includes("взросл")) return "Взрослые самцы";
+  if (t.includes("все половозрастные")) return "Все половозрастные группы";
+  if (t.includes("до 1 года")) return "Молодняк (до 1 года)";
+  if (t.includes("продолжительность сезона")) return "Длительность сезона";
+  return "Срок охоты";
 }
 
 function buildDateMatrix() {
@@ -223,6 +281,14 @@ function buildDateMatrix() {
     period.className = "mt-2 text-sm";
     period.textContent = extractPeriodText(q.answers[q.correctIndex]);
 
+    const context = document.createElement("p");
+    context.className = "mt-1 text-xs text-appmuted";
+    context.textContent = `${inferObjectLabel(q)} • ${inferDateCategory(q)}`;
+
+    const questionLine = document.createElement("p");
+    questionLine.className = "mt-1 text-xs text-appmuted";
+    questionLine.textContent = `Вопрос: ${q.text}`;
+
     const actions = document.createElement("div");
     actions.className = "mt-2";
 
@@ -234,7 +300,7 @@ function buildDateMatrix() {
 
     actions.appendChild(openBtn);
     head.append(title, id);
-    row.append(head, period, actions);
+    row.append(head, context, period, questionLine, actions);
     dateMatrixEl.appendChild(row);
   });
 }

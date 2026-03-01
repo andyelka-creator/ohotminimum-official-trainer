@@ -1,4 +1,4 @@
-const CACHE_NAME = "ohotminimum-v1";
+const CACHE_NAME = "ohotminimum-v2";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
@@ -29,8 +29,27 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   const isData = url.pathname.includes("/data/");
+  const isShell =
+    req.mode === "navigate" ||
+    url.pathname.endsWith(".html") ||
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".webmanifest");
 
   if (isData) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  if (isShell) {
     event.respondWith(
       fetch(req)
         .then((res) => {
