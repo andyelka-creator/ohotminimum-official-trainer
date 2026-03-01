@@ -264,6 +264,16 @@ function updateTrainerReturnControls() {
   prevBtn.textContent = "Назад";
 }
 
+function restorePageScroll(scrollY) {
+  if (!Number.isFinite(scrollY)) return;
+  // Defer to let tab/theme content render before restoring position.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "auto" });
+    });
+  });
+}
+
 function restoreTrainerReturnContext() {
   if (!trainerReturnContext) return false;
   const ctx = trainerReturnContext;
@@ -283,16 +293,19 @@ function restoreTrainerReturnContext() {
     if (ctx.rulesMode === "date" && ctx.dateThemeId) {
       selectDateTheme(ctx.dateThemeId);
     }
+    restorePageScroll(ctx.scrollY);
     return true;
   }
 
   if (ctx.tab === "trainer") {
     setActiveTab("trainer");
     setTrainerMode(ctx.trainerMode || "classic");
+    restorePageScroll(ctx.scrollY);
     return true;
   }
 
   setActiveTab(ctx.tab || "trainer");
+  restorePageScroll(ctx.scrollY);
   return true;
 }
 
@@ -797,7 +810,13 @@ function renderRulesThemeContent(themeId) {
     openBtn.className = "item-link";
     openBtn.textContent = `К вопросу #${q.id}`;
     openBtn.addEventListener("click", () =>
-      openQuestionById(q.id, { tab: "rules", rulesMode: "rule", rulesThemeId: activeRulesThemeId, label: "правилам" })
+      openQuestionById(q.id, {
+        tab: "rules",
+        rulesMode: "rule",
+        rulesThemeId: activeRulesThemeId,
+        label: "правилам",
+        scrollY: window.scrollY,
+      })
     );
     actions.appendChild(openBtn);
 
@@ -853,7 +872,13 @@ function renderDateThemeContent(themeId) {
     openBtn.className = "item-link";
     openBtn.textContent = `К вопросу #${q.id}`;
     openBtn.addEventListener("click", () =>
-      openQuestionById(q.id, { tab: "rules", rulesMode: "date", dateThemeId: activeDateThemeId, label: "датам" })
+      openQuestionById(q.id, {
+        tab: "rules",
+        rulesMode: "date",
+        dateThemeId: activeDateThemeId,
+        label: "датам",
+        scrollY: window.scrollY,
+      })
     );
     actions.appendChild(openBtn);
 
@@ -1082,7 +1107,12 @@ function renderAntiHeuristicPanel() {
     openBtn.className = "item-link";
     openBtn.textContent = `Открыть вопрос #${q.id}`;
     openBtn.addEventListener("click", () =>
-      openQuestionById(q.id, { tab: "trainer", trainerMode: "anti-heur", label: "анти-эвристикам" })
+      openQuestionById(q.id, {
+        tab: "trainer",
+        trainerMode: "anti-heur",
+        label: "анти-эвристикам",
+        scrollY: window.scrollY,
+      })
     );
     actions.appendChild(openBtn);
 
