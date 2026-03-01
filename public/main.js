@@ -12,7 +12,7 @@ const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const backToRulesBtn = document.getElementById("backToRulesBtn");
-const themeTrainerSelectEl = document.getElementById("themeTrainerSelect");
+const themeTrainerTabsEl = document.getElementById("themeTrainerTabs");
 const startThemeDrillBtn = document.getElementById("startThemeDrillBtn");
 const themeDrillStatsEl = document.getElementById("themeDrillStats");
 const themeDrillQuestionEl = document.getElementById("themeDrillQuestion");
@@ -49,6 +49,7 @@ let rulesBuilt = false;
 let insightsBuilt = false;
 let rulesThemes = [];
 let activeRulesThemeId = "";
+let activeTrainerThemeId = "";
 
 const RULE_GROUPS = [
   {
@@ -197,18 +198,28 @@ function openQuestionById(id, fromRules = false) {
 
 function refreshThemeDrillThemes() {
   const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
-  themeTrainerSelectEl.innerHTML = "";
+  const available = sourceThemes.filter((theme) => theme.questions?.length);
+  themeTrainerTabsEl.innerHTML = "";
 
-  for (const theme of sourceThemes) {
-    if (!theme.questions?.length) continue;
-    const opt = document.createElement("option");
-    opt.value = theme.id;
-    opt.textContent = `${theme.title} (${theme.questions.length})`;
-    themeTrainerSelectEl.appendChild(opt);
+  if (!available.length) {
+    activeTrainerThemeId = "";
+    return;
   }
 
-  if (!themeTrainerSelectEl.value && themeTrainerSelectEl.options.length > 0) {
-    themeTrainerSelectEl.selectedIndex = 0;
+  if (!activeTrainerThemeId || !available.some((t) => t.id === activeTrainerThemeId)) {
+    activeTrainerThemeId = available[0].id;
+  }
+
+  for (const theme of available) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = theme.id === activeTrainerThemeId ? "tab-btn active" : "tab-btn";
+    btn.textContent = `${theme.title} (${theme.questions.length})`;
+    btn.addEventListener("click", () => {
+      activeTrainerThemeId = theme.id;
+      refreshThemeDrillThemes();
+    });
+    themeTrainerTabsEl.appendChild(btn);
   }
 }
 
@@ -235,7 +246,7 @@ function randomItem(items) {
 
 function startThemeDrill() {
   clearThemeDrillTimers();
-  const themeId = themeTrainerSelectEl.value;
+  const themeId = activeTrainerThemeId;
   const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
   const theme = sourceThemes.find((t) => t.id === themeId);
   if (!theme || !theme.questions?.length) {

@@ -65,9 +65,11 @@
           <p class="mt-1 text-xs text-appmuted">
             Мини-экзамен по выбранной теме: каждый вопрос нужно ответить правильно 3 раза подряд.
           </p>
+          <div class="mt-3">
+            <p class="mb-2 text-sm text-appmuted">Тема:</p>
+            <div id="themeTrainerTabs" class="h-scroll-tabs" aria-label="Темы тренировки"></div>
+          </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <label for="themeTrainerSelect" class="text-sm text-appmuted">Тема:</label>
-            <select id="themeTrainerSelect" class="select-field"></select>
             <button id="startThemeDrillBtn" class="action-btn" type="button">Начать тренировку</button>
           </div>
           <div id="themeDrillStats" class="mt-3 text-sm text-appmuted"></div>

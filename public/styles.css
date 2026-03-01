@@ -94,6 +94,30 @@
   opacity: 0.85;
 }
 
+.h-scroll-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.15rem;
+}
+
+.h-scroll-tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.h-scroll-tabs::-webkit-scrollbar-thumb {
+  background: rgb(71 85 105 / 0.8);
+  border-radius: 999px;
+}
+
+.h-scroll-tabs .tab-btn {
+  flex: 0 0 auto;
+}
+
 .exam-sticky-top {
   position: sticky;
   top: 0.4rem;
