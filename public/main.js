@@ -74,6 +74,12 @@ const examState = {
   answered: false,
 };
 
+function answerPrefix(index) {
+  if (index === 0) return "а)";
+  if (index === 1) return "б)";
+  return "в)";
+}
+
 function renderNotReady() {
   statusEl.className = "rounded-xl border border-appdanger bg-apppanel p-4 text-sm font-semibold text-appdanger";
   statusEl.textContent = "SYSTEM NOT READY";
@@ -119,7 +125,7 @@ function renderQuestion() {
     li.className =
       "rounded-lg border px-3 py-2 text-sm leading-relaxed " +
       (i === q.correctIndex ? "border-appaccent bg-emerald-900/20" : "border-slate-700 bg-slate-900/30");
-    li.textContent = answer;
+    li.textContent = `${answerPrefix(i)} ${answer}`;
     answersEl.appendChild(li);
   });
 
@@ -437,7 +443,7 @@ function renderExam() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "exam-option";
-    btn.textContent = answer;
+    btn.textContent = `${answerPrefix(i)} ${answer}`;
     btn.disabled = examState.answered;
     btn.addEventListener("click", () => submitExamAnswer(i));
     examOptionsEl.appendChild(btn);
