@@ -5,6 +5,7 @@ const tabTrainerBtn = document.getElementById("tabTrainer");
 const tabRulesBtn = document.getElementById("tabRules");
 const tabExamBtn = document.getElementById("tabExam");
 const tabInsightsBtn = document.getElementById("tabInsights");
+const buildUpdateBadgeEl = document.getElementById("buildUpdateBadge");
 
 const trainerEl = document.getElementById("trainer");
 const trainerSwipeAreaEl = document.getElementById("trainerSwipeArea");
@@ -79,6 +80,7 @@ let rulesMode = "rule";
 let rulesSwipeStartX = 0;
 let rulesSwipeStartY = 0;
 let rulesSwipeIgnore = false;
+const BUILD_SEEN_KEY = "ohotminimum_seen_build_id";
 
 const RULE_GROUPS = [
   {
@@ -153,6 +155,45 @@ function answerPrefix(index) {
 function renderNotReady() {
   statusEl.className = "rounded-xl border border-appdanger bg-apppanel p-4 text-sm font-semibold text-appdanger";
   statusEl.textContent = "SYSTEM NOT READY";
+}
+
+function hideBuildUpdateBadge() {
+  if (!buildUpdateBadgeEl) return;
+  buildUpdateBadgeEl.classList.add("hidden");
+}
+
+function showBuildUpdateBadge(buildId) {
+  if (!buildUpdateBadgeEl) return;
+  buildUpdateBadgeEl.classList.remove("hidden");
+  buildUpdateBadgeEl.onclick = () => {
+    localStorage.setItem(BUILD_SEEN_KEY, buildId);
+    hideBuildUpdateBadge();
+  };
+}
+
+async function checkBuildUpdateBadge() {
+  try {
+    const resp = await fetch(`./build-meta.json?v=${Date.now()}`, { cache: "no-store" });
+    if (!resp.ok) return;
+    const meta = await resp.json();
+    const buildId = String(meta?.buildId || "");
+    if (!buildId) return;
+
+    const seenBuildId = localStorage.getItem(BUILD_SEEN_KEY);
+    if (!seenBuildId) {
+      localStorage.setItem(BUILD_SEEN_KEY, buildId);
+      hideBuildUpdateBadge();
+      return;
+    }
+    if (seenBuildId !== buildId) {
+      // New deployment detected for this user history.
+      showBuildUpdateBadge(buildId);
+      return;
+    }
+    hideBuildUpdateBadge();
+  } catch {
+    // Silent fallback: no badge if metadata endpoint unavailable.
+  }
 }
 
 function tabState(button, active) {
@@ -1447,3 +1488,4 @@ setupTrainerSwipe();
 setupRulesSwipe();
 
 bootstrap();
+checkBuildUpdateBadge();
