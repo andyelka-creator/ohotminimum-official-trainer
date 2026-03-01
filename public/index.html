@@ -17,14 +17,14 @@
 
       <nav id="tabs" class="tabs hidden" aria-label="Разделы">
         <button id="tabTrainer" class="tab active" type="button">Тренажер</button>
-        <button id="tabProhibitions" class="tab" type="button">Запреты</button>
+        <button id="tabRules" class="tab" type="button">Правила и даты</button>
         <button id="tabExam" class="tab" type="button">Экзамен</button>
       </nav>
 
       <section id="trainer" class="panel hidden">
         <div class="section-head">
           <h2>Тренажер</h2>
-          <button id="backToProhibitionsBtn" class="ghost-btn hidden" type="button">← Вернуться к запретам</button>
+          <button id="backToRulesBtn" class="ghost-btn hidden" type="button">← Вернуться к правилам и датам</button>
         </div>
         <div id="questionText" class="question"></div>
         <ol id="answers" class="answers"></ol>
@@ -34,10 +34,14 @@
         </div>
       </section>
 
-      <section id="prohibitions" class="panel hidden">
-        <h2>Запреты</h2>
-        <p class="section-subtitle">Интерактивный список запретов. Нажмите «К вопросу», чтобы открыть связанный вопрос в тренажере.</p>
-        <div id="prohibitionsList" class="list-grid"></div>
+      <section id="rules" class="panel hidden">
+        <h2>Правила и ограничения</h2>
+        <p class="section-subtitle">Списки по ключевым правилам. Внутри каждого пункта можно открыть исходный вопрос.</p>
+        <div id="rulesGrid" class="rule-groups"></div>
+
+        <h2 class="section-gap">Матрица дат охоты</h2>
+        <p class="section-subtitle">Сводный список вопросов, где ответ содержит период (начало/конец, сезон).</p>
+        <div id="dateMatrix" class="date-matrix"></div>
       </section>
 
       <section id="exam" class="panel hidden">

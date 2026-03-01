@@ -2,7 +2,7 @@ const statusEl = document.getElementById("status");
 const tabsEl = document.getElementById("tabs");
 
 const tabTrainerBtn = document.getElementById("tabTrainer");
-const tabProhibitionsBtn = document.getElementById("tabProhibitions");
+const tabRulesBtn = document.getElementById("tabRules");
 const tabExamBtn = document.getElementById("tabExam");
 
 const trainerEl = document.getElementById("trainer");
@@ -10,10 +10,11 @@ const questionTextEl = document.getElementById("questionText");
 const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
-const backToProhibitionsBtn = document.getElementById("backToProhibitionsBtn");
+const backToRulesBtn = document.getElementById("backToRulesBtn");
 
-const prohibitionsEl = document.getElementById("prohibitions");
-const prohibitionsListEl = document.getElementById("prohibitionsList");
+const rulesEl = document.getElementById("rules");
+const rulesGridEl = document.getElementById("rulesGrid");
+const dateMatrixEl = document.getElementById("dateMatrix");
 
 const examEl = document.getElementById("exam");
 const examOrderEl = document.getElementById("examOrder");
@@ -26,7 +27,40 @@ const examNextBtn = document.getElementById("examNextBtn");
 
 let questions = [];
 let index = 0;
-let openedFromProhibitions = false;
+let openedFromRules = false;
+
+const RULE_GROUPS = [
+  {
+    title: "Запреты при осуществлении охоты",
+    description: "Что строго запрещено в процессе охоты.",
+    matcher: (q) => /^При осуществлении охоты запрещается/i.test(q.text),
+  },
+  {
+    title: "Сроки охоты на взрослых самцов",
+    description: "Сроки по отдельным видам и специальным режимам.",
+    matcher: (q) => /Срок охоты на взрослых самцов/i.test(q.text),
+  },
+  {
+    title: "Сроки по половозрастным группам",
+    description: "Вопросы формата «в какие сроки осуществляется».",
+    matcher: (q) => /^В какие сроки охоты осуществляется/i.test(q.text),
+  },
+  {
+    title: "Охота на копытных по целям",
+    description: "Одно правило, разные цели осуществления охоты.",
+    matcher: (q) => /^Охота на копытных животных в целях/i.test(q.text),
+  },
+  {
+    title: "Коллективная охота: документы и состав",
+    description: "Списки участников, путевки, требования к данным.",
+    matcher: (q) => /^При осуществлении коллективной охоты/i.test(q.text),
+  },
+  {
+    title: "Специальные правила по медведю",
+    description: "Отдельные обязательные условия для охоты на медведя.",
+    matcher: (q) => /^При осуществлении охоты на медведей/i.test(q.text),
+  },
+];
 
 const examState = {
   orderMode: "sequential",
@@ -34,7 +68,6 @@ const examState = {
   position: 0,
   correct: 0,
   answered: false,
-  selectedIndex: -1,
 };
 
 function renderNotReady() {
@@ -44,20 +77,20 @@ function renderNotReady() {
 
 function setActiveTab(tab) {
   const trainerActive = tab === "trainer";
-  const prohibitionsActive = tab === "prohibitions";
+  const rulesActive = tab === "rules";
   const examActive = tab === "exam";
 
   tabTrainerBtn.classList.toggle("active", trainerActive);
-  tabProhibitionsBtn.classList.toggle("active", prohibitionsActive);
+  tabRulesBtn.classList.toggle("active", rulesActive);
   tabExamBtn.classList.toggle("active", examActive);
 
   trainerEl.classList.toggle("hidden", !trainerActive);
-  prohibitionsEl.classList.toggle("hidden", !prohibitionsActive);
+  rulesEl.classList.toggle("hidden", !rulesActive);
   examEl.classList.toggle("hidden", !examActive);
 
   if (!trainerActive) {
-    openedFromProhibitions = false;
-    backToProhibitionsBtn.classList.add("hidden");
+    openedFromRules = false;
+    backToRulesBtn.classList.add("hidden");
   }
 }
 
@@ -79,7 +112,7 @@ function renderQuestion() {
   nextBtn.disabled = index === questions.length - 1;
 }
 
-function openQuestionById(id, fromProhibitions = false) {
+function openQuestionById(id, fromRules = false) {
   const nextIndex = questions.findIndex((q) => q.id === id);
   if (nextIndex < 0) return;
 
@@ -87,45 +120,113 @@ function openQuestionById(id, fromProhibitions = false) {
   renderQuestion();
   setActiveTab("trainer");
 
-  openedFromProhibitions = fromProhibitions;
-  backToProhibitionsBtn.classList.toggle("hidden", !openedFromProhibitions);
+  openedFromRules = fromRules;
+  backToRulesBtn.classList.toggle("hidden", !openedFromRules);
 }
 
-function prohibitionQuestions() {
-  return questions
-    .filter((q) => /^При осуществлении охоты запрещается/i.test(q.text))
-    .sort((a, b) => a.id - b.id);
-}
+function buildRuleGroups() {
+  rulesGridEl.innerHTML = "";
 
-function buildProhibitionsList() {
-  prohibitionsListEl.innerHTML = "";
-  const list = prohibitionQuestions();
+  for (const group of RULE_GROUPS) {
+    const matched = questions.filter((q) => group.matcher(q)).sort((a, b) => a.id - b.id);
+    if (matched.length === 0) continue;
 
-  for (const q of list) {
-    const item = document.createElement("article");
-    item.className = "list-item";
+    const card = document.createElement("article");
+    card.className = "rule-group";
 
-    const title = document.createElement("p");
-    title.className = "list-item-title";
-    title.textContent = q.answers[q.correctIndex];
+    const title = document.createElement("h3");
+    title.textContent = group.title;
 
     const meta = document.createElement("p");
-    meta.className = "list-item-meta";
-    meta.textContent = `Вопрос #${q.id}`;
+    meta.className = "rule-group-meta";
+    meta.textContent = `${group.description} • ${matched.length} вопросов`;
+
+    const list = document.createElement("div");
+    list.className = "item-list";
+
+    matched.forEach((q) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+
+      const itemTitle = document.createElement("p");
+      itemTitle.className = "item-title";
+      itemTitle.textContent = q.answers[q.correctIndex];
+
+      const itemMeta = document.createElement("p");
+      itemMeta.className = "item-meta";
+      itemMeta.textContent = `Вопрос #${q.id}`;
+
+      const actions = document.createElement("div");
+      actions.className = "item-actions";
+
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "item-link";
+      openBtn.textContent = `К вопросу #${q.id}`;
+      openBtn.addEventListener("click", () => openQuestionById(q.id, true));
+
+      actions.appendChild(openBtn);
+      row.append(itemTitle, itemMeta, actions);
+      list.appendChild(row);
+    });
+
+    card.append(title, meta, list);
+    rulesGridEl.appendChild(card);
+  }
+}
+
+function extractPeriodText(answer) {
+  const clean = answer.replace(/\s+/g, " ").trim();
+  const range = clean.match(/с\s+\d{1,2}\s+[а-яё]+\s+по\s+\d{1,2}\s+[а-яё]+/i);
+  if (range) return range[0];
+  const yearRange = clean.match(/с\s+\d{1,2}\s+[а-яё]+\s+по\s+\d{1,2}\s+[а-яё]+|по\s+\d{1,2}\s+[а-яё]+/i);
+  if (yearRange) return yearRange[0];
+  return clean;
+}
+
+function buildDateMatrix() {
+  dateMatrixEl.innerHTML = "";
+
+  const dateQuestions = questions
+    .filter((q) => {
+      const t = q.text.toLowerCase();
+      const a = q.answers[q.correctIndex].toLowerCase();
+      return /срок|сроки|в какие сроки|продолжительность сезона|осуществляется охота|с\s+\d{1,2}|по\s+\d{1,2}/i.test(t + " " + a);
+    })
+    .sort((a, b) => a.id - b.id);
+
+  dateQuestions.forEach((q) => {
+    const row = document.createElement("article");
+    row.className = "date-row";
+
+    const head = document.createElement("div");
+    head.className = "date-row-head";
+
+    const title = document.createElement("strong");
+    title.textContent = q.text;
+
+    const id = document.createElement("span");
+    id.className = "date-row-id";
+    id.textContent = `#${q.id}`;
+
+    const period = document.createElement("p");
+    period.className = "date-row-period";
+    period.textContent = extractPeriodText(q.answers[q.correctIndex]);
 
     const actions = document.createElement("div");
-    actions.className = "list-actions";
+    actions.className = "item-actions";
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "list-link";
-    button.textContent = `К вопросу #${q.id}`;
-    button.addEventListener("click", () => openQuestionById(q.id, true));
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "item-link";
+    openBtn.textContent = `Открыть #${q.id}`;
+    openBtn.addEventListener("click", () => openQuestionById(q.id, true));
 
-    actions.appendChild(button);
-    item.append(title, meta, actions);
-    prohibitionsListEl.appendChild(item);
-  }
+    actions.appendChild(openBtn);
+    head.append(title, id);
+    row.append(head, period, actions);
+    dateMatrixEl.appendChild(row);
+  });
 }
 
 function validateBank(bank) {
@@ -216,7 +317,6 @@ function startExam() {
   examState.position = 0;
   examState.correct = 0;
   examState.answered = false;
-  examState.selectedIndex = -1;
   renderExam();
 }
 
@@ -288,8 +388,6 @@ function submitExamAnswer(selectedIndex) {
   if (examState.answered || examState.position >= questions.length) return;
 
   examState.answered = true;
-  examState.selectedIndex = selectedIndex;
-
   const q = currentExamQuestion();
   if (!q) return;
 
@@ -307,10 +405,8 @@ function submitExamAnswer(selectedIndex) {
 
 function nextExamQuestion() {
   if (!examState.answered) return;
-
   examState.position += 1;
   examState.answered = false;
-  examState.selectedIndex = -1;
   renderExam();
 }
 
@@ -330,10 +426,11 @@ async function bootstrap() {
 
     tabsEl.classList.remove("hidden");
     trainerEl.classList.remove("hidden");
-    prohibitionsEl.classList.remove("hidden");
+    rulesEl.classList.remove("hidden");
     examEl.classList.remove("hidden");
 
-    buildProhibitionsList();
+    buildRuleGroups();
+    buildDateMatrix();
     renderQuestion();
     startExam();
     setActiveTab("trainer");
@@ -356,12 +453,10 @@ nextBtn.addEventListener("click", () => {
   }
 });
 
-backToProhibitionsBtn.addEventListener("click", () => {
-  setActiveTab("prohibitions");
-});
+backToRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
-tabProhibitionsBtn.addEventListener("click", () => setActiveTab("prohibitions"));
+tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 tabExamBtn.addEventListener("click", () => setActiveTab("exam"));
 
 restartExamBtn.addEventListener("click", () => startExam());
