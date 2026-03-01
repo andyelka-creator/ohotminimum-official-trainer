@@ -482,6 +482,34 @@ function passingScore(total) {
   return Math.ceil(total * 0.75);
 }
 
+function normalizeQuestionText(text) {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function buildExamQueue(allIndexes, mode, targetCount) {
+  const orderedIndexes = mode === "random" ? shuffled(allIndexes) : allIndexes;
+  const usedIndexes = new Set();
+  const usedTexts = new Set();
+  const queue = [];
+
+  // Hard guarantee for one exam attempt: no repeated question index and no repeated question text.
+  for (const idx of orderedIndexes) {
+    if (queue.length >= targetCount) break;
+    if (usedIndexes.has(idx)) continue;
+
+    const q = questions[idx];
+    if (!q) continue;
+    const key = normalizeQuestionText(q.text);
+    if (usedTexts.has(key)) continue;
+
+    usedIndexes.add(idx);
+    usedTexts.add(key);
+    queue.push(idx);
+  }
+
+  return queue;
+}
+
 function startExam() {
   clearExamTimers();
   examState.started = true;
@@ -493,8 +521,7 @@ function startExam() {
 
   const cappedCount = Math.min(examState.questionCount, questions.length);
   const allIndexes = questions.map((_, i) => i);
-  const orderedIndexes = examState.orderMode === "random" ? shuffled(allIndexes) : allIndexes;
-  examState.queue = orderedIndexes.slice(0, cappedCount);
+  examState.queue = buildExamQueue(allIndexes, examState.orderMode, cappedCount);
 
   examState.position = 0;
   examState.correct = 0;
@@ -520,6 +547,13 @@ function startExam() {
     renderQuestionTimer();
   }, 1000);
   renderExam();
+  if (examState.queue.length < examState.questionCount) {
+    // If source contains repeated wording, we keep non-repeating set for exam integrity.
+    setFeedback(
+      `Собрано ${examState.queue.length} уникальных вопросов по тексту вместо ${examState.questionCount}.`,
+      "bad"
+    );
+  }
 }
 
 function currentExamQuestion() {
