@@ -56,6 +56,7 @@
         <div id="trainerModeTabs" class="h-scroll-tabs" aria-label="Режим тренажера">
           <button id="trainerModeClassicBtn" class="tab-btn active" type="button">Тренажер</button>
           <button id="trainerModeThemeBtn" class="tab-btn" type="button">Тренировка по темам</button>
+          <button id="trainerModeAntiHeurBtn" class="tab-btn" type="button">Анти-эвристики</button>
         </div>
         <p class="mt-1 text-xs text-appmuted">Листай вкладки влево/вправо или свайпай по области вопроса.</p>
 
@@ -87,6 +88,14 @@
             <div class="mt-3">
               <button id="themeDrillNextBtn" class="action-btn" type="button" disabled>Следующий вопрос</button>
             </div>
+          </div>
+
+          <div id="trainerAntiHeurPanel" class="hidden">
+            <p class="mt-1 text-xs text-appmuted">
+              Отдельный список вопросов, где эвристика “выбери самый длинный ответ и чаще б)” может подвести.
+            </p>
+            <div id="antiHeurMeta" class="mt-2 text-sm text-appmuted"></div>
+            <div id="antiHeurList" class="mt-3 grid gap-2"></div>
           </div>
         </div>
       </section>

@@ -10,8 +10,10 @@ const trainerEl = document.getElementById("trainer");
 const trainerSwipeAreaEl = document.getElementById("trainerSwipeArea");
 const trainerModeClassicBtn = document.getElementById("trainerModeClassicBtn");
 const trainerModeThemeBtn = document.getElementById("trainerModeThemeBtn");
+const trainerModeAntiHeurBtn = document.getElementById("trainerModeAntiHeurBtn");
 const trainerClassicPanelEl = document.getElementById("trainerClassicPanel");
 const trainerThemePanelEl = document.getElementById("trainerThemePanel");
+const trainerAntiHeurPanelEl = document.getElementById("trainerAntiHeurPanel");
 const questionTextEl = document.getElementById("questionText");
 const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
@@ -24,6 +26,8 @@ const themeDrillQuestionEl = document.getElementById("themeDrillQuestion");
 const themeDrillOptionsEl = document.getElementById("themeDrillOptions");
 const themeDrillFeedbackEl = document.getElementById("themeDrillFeedback");
 const themeDrillNextBtn = document.getElementById("themeDrillNextBtn");
+const antiHeurMetaEl = document.getElementById("antiHeurMeta");
+const antiHeurListEl = document.getElementById("antiHeurList");
 
 const rulesEl = document.getElementById("rules");
 const rulesSwipeAreaEl = document.getElementById("rulesSwipeArea");
@@ -70,6 +74,7 @@ let trainerMode = "classic";
 let trainerSwipeStartX = 0;
 let trainerSwipeStartY = 0;
 let trainerSwipeIgnore = false;
+let antiHeuristicQuestions = [];
 let rulesMode = "rule";
 let rulesSwipeStartX = 0;
 let rulesSwipeStartY = 0;
@@ -189,13 +194,21 @@ function setActiveTab(tab) {
 }
 
 function setTrainerMode(mode) {
-  trainerMode = mode === "theme" ? "theme" : "classic";
+  if (mode === "theme" || mode === "anti-heur") {
+    trainerMode = mode;
+  } else {
+    trainerMode = "classic";
+  }
   const classic = trainerMode === "classic";
+  const theme = trainerMode === "theme";
+  const antiHeur = trainerMode === "anti-heur";
 
   trainerModeClassicBtn.className = classic ? "tab-btn active" : "tab-btn";
-  trainerModeThemeBtn.className = classic ? "tab-btn" : "tab-btn active";
+  trainerModeThemeBtn.className = theme ? "tab-btn active" : "tab-btn";
+  trainerModeAntiHeurBtn.className = antiHeur ? "tab-btn active" : "tab-btn";
   trainerClassicPanelEl.classList.toggle("hidden", !classic);
-  trainerThemePanelEl.classList.toggle("hidden", classic);
+  trainerThemePanelEl.classList.toggle("hidden", !theme);
+  trainerAntiHeurPanelEl.classList.toggle("hidden", !antiHeur);
 
   if (!classic) {
     openedFromRules = false;
@@ -228,8 +241,10 @@ function setupTrainerSwipe() {
     const dy = t.clientY - trainerSwipeStartY;
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
 
-    if (dx < 0) setTrainerMode("theme");
-    if (dx > 0) setTrainerMode("classic");
+    const modes = ["classic", "theme", "anti-heur"];
+    const currentIndex = modes.indexOf(trainerMode);
+    if (dx < 0 && currentIndex < modes.length - 1) setTrainerMode(modes[currentIndex + 1]);
+    if (dx > 0 && currentIndex > 0) setTrainerMode(modes[currentIndex - 1]);
   }, { passive: true });
 }
 
@@ -922,6 +937,67 @@ function normalizeQuestionText(text) {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function antiHeuristicReason(q) {
+  const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
+  const maxLen = Math.max(...lengths);
+  const isLongestOrTie = lengths[q.correctIndex] === maxLen;
+  const reasons = [];
+  if (q.correctIndex !== 1) reasons.push("правильный не в позиции б");
+  if (!isLongestOrTie) reasons.push("правильный не самый длинный");
+  return reasons;
+}
+
+function buildAntiHeuristicQuestions() {
+  // Anti-heuristic pool: exclude questions where BOTH naive heuristics agree ("б" and longest-or-tied).
+  return questions
+    .filter((q) => {
+      const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
+      const maxLen = Math.max(...lengths);
+      const isLongestOrTie = lengths[q.correctIndex] === maxLen;
+      const isB = q.correctIndex === 1;
+      return !(isLongestOrTie && isB);
+    })
+    .sort((a, b) => a.id - b.id);
+}
+
+function renderAntiHeuristicPanel() {
+  antiHeurListEl.innerHTML = "";
+  if (!antiHeuristicQuestions.length) {
+    antiHeurMetaEl.textContent = "Все вопросы попали под эвристику — анти-эвристический список пуст.";
+    return;
+  }
+
+  antiHeurMetaEl.textContent = `Вопросов для анти-эвристической тренировки: ${antiHeuristicQuestions.length} из ${questions.length}`;
+  for (const q of antiHeuristicQuestions) {
+    const row = document.createElement("article");
+    row.className = "rounded-lg border border-slate-700 bg-slate-900/30 p-3";
+
+    const title = document.createElement("p");
+    title.className = "text-sm";
+    title.textContent = `${q.id}. ${q.text}`;
+
+    const reason = document.createElement("p");
+    reason.className = "mt-1 text-xs text-appmuted";
+    reason.textContent = `Почему здесь: ${antiHeuristicReason(q).join(" + ") || "комбинированный риск"}`;
+
+    const answerText = document.createElement("p");
+    answerText.className = "mt-2 text-sm";
+    answerText.textContent = `Правильный ответ: ${q.answers[q.correctIndex]}`;
+
+    const actions = document.createElement("div");
+    actions.className = "mt-2";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "item-link";
+    openBtn.textContent = `Открыть вопрос #${q.id}`;
+    openBtn.addEventListener("click", () => openQuestionById(q.id, false));
+    actions.appendChild(openBtn);
+
+    row.append(title, reason, answerText, actions);
+    antiHeurListEl.appendChild(row);
+  }
+}
+
 function buildExamQueue(allIndexes, mode, targetCount) {
   const orderedIndexes = mode === "random" ? shuffled(allIndexes) : allIndexes;
   const usedIndexes = new Set();
@@ -1310,8 +1386,12 @@ async function bootstrap() {
     // We keep first paint fast and postpone heavy lists until the corresponding tab is opened.
     rulesBuilt = false;
     insightsBuilt = false;
-    rulesThemes = buildRulesThemes();
+    const builtThemes = buildRulesThemes();
+    rulesThemes = builtThemes.ruleThemes;
+    dateThemes = builtThemes.dateThemes;
+    antiHeuristicQuestions = buildAntiHeuristicQuestions();
     refreshThemeDrillThemes();
+    renderAntiHeuristicPanel();
     renderQuestion();
     renderExamIdle();
     renderThemeDrillStats();
@@ -1342,6 +1422,7 @@ startThemeDrillBtn.addEventListener("click", () => startThemeDrill());
 themeDrillNextBtn.addEventListener("click", () => nextThemeDrillQuestion());
 trainerModeClassicBtn.addEventListener("click", () => setTrainerMode("classic"));
 trainerModeThemeBtn.addEventListener("click", () => setTrainerMode("theme"));
+trainerModeAntiHeurBtn.addEventListener("click", () => setTrainerMode("anti-heur"));
 rulesModeRuleBtn.addEventListener("click", () => setRulesMode("rule"));
 rulesModeDateBtn.addEventListener("click", () => setRulesMode("date"));
 
