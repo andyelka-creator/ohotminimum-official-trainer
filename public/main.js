@@ -941,21 +941,29 @@ function antiHeuristicReason(q) {
   const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
   const maxLen = Math.max(...lengths);
   const isLongestOrTie = lengths[q.correctIndex] === maxLen;
+  const isUniqueLongest = isLongestOrTie && lengths.filter((len) => len === maxLen).length === 1;
   const reasons = [];
   if (q.correctIndex !== 1) reasons.push("правильный не в позиции б");
-  if (!isLongestOrTie) reasons.push("правильный не самый длинный");
+  if (isUniqueLongest) {
+    reasons.push("правильный уникально самый длинный (исключается)");
+  } else {
+    reasons.push("правильный не уникально самый длинный");
+  }
   return reasons;
 }
 
 function buildAntiHeuristicQuestions() {
-  // Anti-heuristic pool: exclude questions where BOTH naive heuristics agree ("б" and longest-or-tied).
+  // Strict anti-heuristic pool:
+  // correct answer is NOT "б" and is NOT uniquely longest
+  // (i.e. it is shorter, or tied by length with another option).
   return questions
     .filter((q) => {
       const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
       const maxLen = Math.max(...lengths);
       const isLongestOrTie = lengths[q.correctIndex] === maxLen;
+      const isUniqueLongest = isLongestOrTie && lengths.filter((len) => len === maxLen).length === 1;
       const isB = q.correctIndex === 1;
-      return !(isLongestOrTie && isB);
+      return !isB && !isUniqueLongest;
     })
     .sort((a, b) => a.id - b.id);
 }
@@ -978,7 +986,7 @@ function renderAntiHeuristicPanel() {
 
     const reason = document.createElement("p");
     reason.className = "mt-1 text-xs text-appmuted";
-    reason.textContent = `Почему здесь: ${antiHeuristicReason(q).join(" + ") || "комбинированный риск"}`;
+    reason.textContent = `Почему здесь: ${antiHeuristicReason(q).join(" + ") || "анти-эвристический критерий"}`;
 
     const answerText = document.createElement("p");
     answerText.className = "mt-2 text-sm";
