@@ -75,6 +75,7 @@ const examState = {
   startedAt: 0,
   finishedAt: 0,
   autoNextTimeoutId: null,
+  autoNextIntervalId: null,
   statsTickerId: null,
 };
 
@@ -412,6 +413,10 @@ function clearExamTimers() {
     clearInterval(examState.statsTickerId);
     examState.statsTickerId = null;
   }
+  if (examState.autoNextIntervalId) {
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }
 }
 
 function formatDurationMs(ms) {
@@ -530,6 +535,18 @@ function submitExamAnswer(selectedIndex) {
   examNextBtn.disabled = false;
   renderExamStats();
 
+  let remaining = 3;
+  examNextBtn.textContent = `Далее (${remaining})`;
+  examState.autoNextIntervalId = setInterval(() => {
+    remaining -= 1;
+    if (remaining > 0) {
+      examNextBtn.textContent = `Далее (${remaining})`;
+      return;
+    }
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }, 1000);
+
   examState.autoNextTimeoutId = setTimeout(() => {
     examState.autoNextTimeoutId = null;
     nextExamQuestion();
@@ -544,6 +561,10 @@ function nextExamQuestion() {
   }
   examState.position += 1;
   examState.answered = false;
+  if (examState.autoNextIntervalId) {
+    clearInterval(examState.autoNextIntervalId);
+    examState.autoNextIntervalId = null;
+  }
   renderExam();
 }
 
