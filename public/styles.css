@@ -1,31 +1,37 @@
 .tab-btn {
-  border: 1px solid rgb(71 85 105 / 1);
-  background: rgb(15 23 42 / 0.7);
+  border: 1px solid rgb(71 85 105 / 0.9);
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.95), rgb(15 23 42 / 0.95));
   color: rgb(226 232 240 / 1);
-  border-radius: 0.6rem;
-  padding: 0.55rem 0.9rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.95rem;
   font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(148 163 184 / 0.18);
 }
 
 .tab-btn.active {
-  border-color: #22c55e;
-  background: rgb(30 41 59 / 0.95);
+  border-color: rgb(34 197 94 / 0.9);
+  background: linear-gradient(180deg, rgb(20 83 45 / 0.95), rgb(6 78 59 / 0.95));
+  color: rgb(240 253 244 / 1);
+  box-shadow: 0 0 0 1px rgb(34 197 94 / 0.25), 0 10px 24px rgb(6 95 70 / 0.35);
 }
 
 .panel {
   margin-top: 1rem;
-  border: 1px solid rgb(51 65 85 / 1);
-  background: #142033;
-  border-radius: 0.9rem;
-  padding: 1rem;
+  border: 1px solid rgb(51 65 85 / 0.95);
+  background: linear-gradient(180deg, rgb(20 32 51 / 0.95), rgb(12 20 34 / 0.95));
+  border-radius: 1rem;
+  padding: 1.1rem;
+  box-shadow: 0 18px 40px rgb(2 6 23 / 0.45);
 }
 
 .action-btn {
   border: 1px solid rgb(71 85 105 / 1);
-  background: rgb(30 41 59 / 1);
+  background: linear-gradient(180deg, rgb(51 65 85 / 1), rgb(30 41 59 / 1));
   color: rgb(241 245 249 / 1);
   border-radius: 0.55rem;
   padding: 0.5rem 0.8rem;
+  font-weight: 600;
 }
 
 .action-btn:disabled {
@@ -44,11 +50,12 @@
 
 .item-link {
   border: 1px solid rgb(71 85 105 / 1);
-  background: rgb(30 41 59 / 1);
+  background: linear-gradient(180deg, rgb(37 52 71 / 1), rgb(24 38 55 / 1));
   color: rgb(226 232 240 / 1);
   border-radius: 0.5rem;
   padding: 0.4rem 0.65rem;
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .select-field {

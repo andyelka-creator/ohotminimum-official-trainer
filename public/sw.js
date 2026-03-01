@@ -1,4 +1,4 @@
-const CACHE_NAME = "ohotminimum-v2";
+const CACHE_NAME = "ohotminimum-v3";
 const SHELL_ASSETS = [
   "./",
   "./index.html",

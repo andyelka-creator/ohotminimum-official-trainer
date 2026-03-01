@@ -26,13 +26,20 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="h-full bg-appbg text-slate-100">
-    <main class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-      <header class="mb-4">
-        <h1 class="text-3xl font-bold tracking-tight">Охотничий минимум</h1>
-        <p class="mt-1 text-appmuted">Официальный тренажер</p>
+    <div class="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_10%_10%,rgba(34,197,94,0.16),transparent_40%),radial-gradient(circle_at_90%_20%,rgba(56,189,248,0.14),transparent_35%),radial-gradient(circle_at_60%_90%,rgba(99,102,241,0.12),transparent_40%)]"></div>
+    <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <header class="mb-5 rounded-2xl border border-slate-700/80 bg-slate-900/50 p-5 shadow-2xl shadow-black/30 backdrop-blur">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/90">Official Trainer</p>
+            <h1 class="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Охотничий минимум</h1>
+            <p class="mt-2 text-appmuted">Официальный тренажер</p>
+          </div>
+          <span class="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">PWA</span>
+        </div>
       </header>
 
-      <section id="status" class="rounded-xl border border-slate-700 bg-apppanel p-4 text-sm">Loading...</section>
+      <section id="status" class="rounded-xl border border-slate-700 bg-apppanel p-4 text-sm shadow-lg shadow-black/25">Loading...</section>
 
       <nav id="tabs" class="mt-4 hidden flex-wrap gap-2" aria-label="Разделы">
         <button id="tabTrainer" class="tab-btn active" type="button">Тренажер</button>
