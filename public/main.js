@@ -26,9 +26,17 @@ const themeDrillFeedbackEl = document.getElementById("themeDrillFeedback");
 const themeDrillNextBtn = document.getElementById("themeDrillNextBtn");
 
 const rulesEl = document.getElementById("rules");
+const rulesSwipeAreaEl = document.getElementById("rulesSwipeArea");
+const rulesModeRuleBtn = document.getElementById("rulesModeRuleBtn");
+const rulesModeDateBtn = document.getElementById("rulesModeDateBtn");
+const rulesRulePanelEl = document.getElementById("rulesRulePanel");
+const rulesDatePanelEl = document.getElementById("rulesDatePanel");
 const rulesTopicTabsEl = document.getElementById("rulesTopicTabs");
 const rulesTopicMetaEl = document.getElementById("rulesTopicMeta");
 const rulesTopicContentEl = document.getElementById("rulesTopicContent");
+const dateTopicTabsEl = document.getElementById("dateTopicTabs");
+const dateTopicMetaEl = document.getElementById("dateTopicMeta");
+const dateTopicContentEl = document.getElementById("dateTopicContent");
 
 const examEl = document.getElementById("exam");
 const examOrderEl = document.getElementById("examOrder");
@@ -53,12 +61,18 @@ let openedFromRules = false;
 let rulesBuilt = false;
 let insightsBuilt = false;
 let rulesThemes = [];
+let dateThemes = [];
 let activeRulesThemeId = "";
+let activeDateThemeId = "";
 let activeTrainerThemeId = "";
 let trainerMode = "classic";
 let trainerSwipeStartX = 0;
 let trainerSwipeStartY = 0;
 let trainerSwipeIgnore = false;
+let rulesMode = "rule";
+let rulesSwipeStartX = 0;
+let rulesSwipeStartY = 0;
+let rulesSwipeIgnore = false;
 
 const RULE_GROUPS = [
   {
@@ -218,6 +232,46 @@ function setupTrainerSwipe() {
   }, { passive: true });
 }
 
+function setRulesMode(mode) {
+  // Keep Rules section UX aligned with Trainer: two competing sub-pages in one frame.
+  rulesMode = mode === "date" ? "date" : "rule";
+  const isRule = rulesMode === "rule";
+
+  rulesModeRuleBtn.className = isRule ? "tab-btn active" : "tab-btn";
+  rulesModeDateBtn.className = isRule ? "tab-btn" : "tab-btn active";
+  rulesRulePanelEl.classList.toggle("hidden", !isRule);
+  rulesDatePanelEl.classList.toggle("hidden", isRule);
+}
+
+function setupRulesSwipe() {
+  rulesSwipeAreaEl.addEventListener("touchstart", (event) => {
+    const t = event.changedTouches?.[0];
+    if (!t) return;
+    const target = event.target;
+    rulesSwipeIgnore = Boolean(
+      target instanceof Element &&
+      target.closest(".h-scroll-tabs, button, select, input, textarea, label, a")
+    );
+    if (rulesSwipeIgnore) return;
+    rulesSwipeStartX = t.clientX;
+    rulesSwipeStartY = t.clientY;
+  }, { passive: true });
+
+  rulesSwipeAreaEl.addEventListener("touchend", (event) => {
+    if (rulesSwipeIgnore) {
+      rulesSwipeIgnore = false;
+      return;
+    }
+    const t = event.changedTouches?.[0];
+    if (!t) return;
+    const dx = t.clientX - rulesSwipeStartX;
+    const dy = t.clientY - rulesSwipeStartY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) setRulesMode("date");
+    if (dx > 0) setRulesMode("rule");
+  }, { passive: true });
+}
+
 function renderQuestion() {
   const q = questions[index];
   if (!q) return;
@@ -252,7 +306,7 @@ function openQuestionById(id, fromRules = false) {
 }
 
 function refreshThemeDrillThemes() {
-  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
+  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes().ruleThemes;
   const available = sourceThemes.filter((theme) => theme.questions?.length);
   themeTrainerTabsEl.innerHTML = "";
 
@@ -302,7 +356,7 @@ function randomItem(items) {
 function startThemeDrill() {
   clearThemeDrillTimers();
   const themeId = activeTrainerThemeId;
-  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
+  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes().ruleThemes;
   const theme = sourceThemes.find((t) => t.id === themeId);
   if (!theme || !theme.questions?.length) {
     setThemeDrillFeedback("Тема не выбрана или в теме нет вопросов.", "bad");
@@ -495,12 +549,13 @@ function isDateQuestion(q) {
 }
 
 function buildRulesThemes() {
-  const themes = [];
+  const ruleThemes = [];
+  const builtDateThemes = [];
 
   RULE_GROUPS.forEach((group, idx) => {
     const matched = questions.filter((q) => group.matcher(q)).sort((a, b) => a.id - b.id);
     if (matched.length === 0) return;
-    themes.push({
+    ruleThemes.push({
       id: `rule-${idx}`,
       kind: "rule",
       title: group.title,
@@ -511,6 +566,7 @@ function buildRulesThemes() {
 
   const dateQuestions = questions.filter((q) => isDateQuestion(q)).sort((a, b) => a.id - b.id);
   if (dateQuestions.length > 0) {
+    // Dates are grouped by semantic category to avoid one long, noisy list.
     const byCategory = new Map();
     for (const q of dateQuestions) {
       const category = inferDateCategory(q);
@@ -519,26 +575,32 @@ function buildRulesThemes() {
       byCategory.set(category, list);
     }
     for (const [category, list] of byCategory.entries()) {
-      themes.push({
+      builtDateThemes.push({
         id: `date-${category.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}`,
         kind: "date",
-        title: `Даты: ${category}`,
+        title: category,
         description: "Вопросы по срокам и периодам охоты в контексте объекта.",
         questions: list.sort((a, b) => a.id - b.id),
       });
     }
   }
 
-  return themes;
+  return { ruleThemes, dateThemes: builtDateThemes };
 }
 
 function renderRulesThemes() {
-  rulesThemes = buildRulesThemes();
+  const built = buildRulesThemes();
+  rulesThemes = built.ruleThemes;
+  dateThemes = built.dateThemes;
+
   rulesTopicTabsEl.innerHTML = "";
   rulesTopicContentEl.innerHTML = "";
   rulesTopicMetaEl.textContent = "";
+  dateTopicTabsEl.innerHTML = "";
+  dateTopicContentEl.innerHTML = "";
+  dateTopicMetaEl.textContent = "";
 
-  if (rulesThemes.length === 0) {
+  if (rulesThemes.length === 0 && dateThemes.length === 0) {
     rulesTopicMetaEl.textContent = "Нет доступных тематических блоков.";
     return;
   }
@@ -551,9 +613,24 @@ function renderRulesThemes() {
     btn.addEventListener("click", () => selectRulesTheme(theme.id));
     rulesTopicTabsEl.appendChild(btn);
   }
+  for (const theme of dateThemes) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab-btn";
+    btn.textContent = theme.title;
+    btn.addEventListener("click", () => selectDateTheme(theme.id));
+    dateTopicTabsEl.appendChild(btn);
+  }
 
-  activeRulesThemeId = rulesThemes[0].id;
-  selectRulesTheme(activeRulesThemeId);
+  if (rulesThemes.length > 0) {
+    activeRulesThemeId = rulesThemes[0].id;
+    selectRulesTheme(activeRulesThemeId);
+  }
+  if (dateThemes.length > 0) {
+    activeDateThemeId = dateThemes[0].id;
+    selectDateTheme(activeDateThemeId);
+  }
+  setRulesMode("rule");
   refreshThemeDrillThemes();
 }
 
@@ -611,6 +688,60 @@ function renderRulesThemeContent(themeId) {
     head.append(title, id);
     row.append(head, context, answerText, actions);
     rulesTopicContentEl.appendChild(row);
+  }
+}
+
+function selectDateTheme(themeId) {
+  activeDateThemeId = themeId;
+  const buttons = [...dateTopicTabsEl.querySelectorAll(".tab-btn")];
+  buttons.forEach((btn, i) => {
+    const theme = dateThemes[i];
+    btn.className = theme && theme.id === themeId ? "tab-btn active" : "tab-btn";
+  });
+  renderDateThemeContent(themeId);
+}
+
+function renderDateThemeContent(themeId) {
+  const theme = dateThemes.find((t) => t.id === themeId);
+  dateTopicContentEl.innerHTML = "";
+  if (!theme) return;
+
+  dateTopicMetaEl.textContent = `${theme.description} • ${theme.questions.length} вопросов`;
+  for (const q of theme.questions) {
+    const row = document.createElement("article");
+    row.className = "rounded-lg border border-slate-700 bg-slate-900/30 p-3";
+
+    const head = document.createElement("div");
+    head.className = "flex flex-wrap items-center justify-between gap-2";
+
+    const title = document.createElement("strong");
+    title.className = "text-sm font-semibold";
+    title.textContent = q.text;
+
+    const id = document.createElement("span");
+    id.className = "text-xs text-appmuted";
+    id.textContent = `#${q.id}`;
+
+    const context = document.createElement("p");
+    context.className = "mt-1 text-xs text-appmuted";
+    context.textContent = `${inferObjectLabel(q)} • ${inferDateCategory(q)}`;
+
+    const answerText = document.createElement("p");
+    answerText.className = "mt-2 text-sm";
+    answerText.textContent = `Период: ${extractPeriodText(q.answers[q.correctIndex])}`;
+
+    const actions = document.createElement("div");
+    actions.className = "mt-2";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "item-link";
+    openBtn.textContent = `К вопросу #${q.id}`;
+    openBtn.addEventListener("click", () => openQuestionById(q.id, true));
+    actions.appendChild(openBtn);
+
+    head.append(title, id);
+    row.append(head, context, answerText, actions);
+    dateTopicContentEl.appendChild(row);
   }
 }
 
@@ -1178,6 +1309,8 @@ startThemeDrillBtn.addEventListener("click", () => startThemeDrill());
 themeDrillNextBtn.addEventListener("click", () => nextThemeDrillQuestion());
 trainerModeClassicBtn.addEventListener("click", () => setTrainerMode("classic"));
 trainerModeThemeBtn.addEventListener("click", () => setTrainerMode("theme"));
+rulesModeRuleBtn.addEventListener("click", () => setRulesMode("rule"));
+rulesModeDateBtn.addEventListener("click", () => setRulesMode("date"));
 
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
 tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
@@ -1189,5 +1322,6 @@ examNextBtn.addEventListener("click", () => nextExamQuestion());
 finishExamBtn.addEventListener("click", () => finalizeExam("Экзамен завершен досрочно."));
 
 setupTrainerSwipe();
+setupRulesSwipe();
 
 bootstrap();

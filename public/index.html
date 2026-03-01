@@ -93,10 +93,25 @@
 
       <section id="rules" class="panel hidden">
         <h2 class="text-xl font-semibold">Правила и ограничения</h2>
-        <p class="mt-2 text-sm text-appmuted">Закладки по темам: выбирай тему и получай компактный список релевантных вопросов.</p>
-        <div id="rulesTopicTabs" class="mt-4 flex flex-wrap gap-2"></div>
-        <div id="rulesTopicMeta" class="mt-2 text-xs text-appmuted"></div>
-        <div id="rulesTopicContent" class="mt-3 grid gap-3"></div>
+        <p class="mt-2 text-sm text-appmuted">Листай вкладки влево/вправо или свайпай по области содержимого.</p>
+        <div id="rulesModeTabs" class="mt-3 h-scroll-tabs" aria-label="Режим правил">
+          <button id="rulesModeRuleBtn" class="tab-btn active" type="button">Правила</button>
+          <button id="rulesModeDateBtn" class="tab-btn" type="button">Даты</button>
+        </div>
+
+        <div id="rulesSwipeArea" class="mt-4">
+          <div id="rulesRulePanel">
+            <div id="rulesTopicTabs" class="h-scroll-tabs"></div>
+            <div id="rulesTopicMeta" class="mt-2 text-xs text-appmuted"></div>
+            <div id="rulesTopicContent" class="mt-3 grid gap-3"></div>
+          </div>
+
+          <div id="rulesDatePanel" class="hidden">
+            <div id="dateTopicTabs" class="h-scroll-tabs"></div>
+            <div id="dateTopicMeta" class="mt-2 text-xs text-appmuted"></div>
+            <div id="dateTopicContent" class="mt-3 grid gap-3"></div>
+          </div>
+        </div>
       </section>
 
       <section id="exam" class="panel hidden">
