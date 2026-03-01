@@ -63,7 +63,6 @@ const insightsSummaryEl = document.getElementById("insightsSummary");
 
 let questions = [];
 let index = 0;
-let openedFromRules = false;
 let rulesBuilt = false;
 let insightsBuilt = false;
 let rulesThemes = [];
@@ -81,6 +80,7 @@ let rulesSwipeStartX = 0;
 let rulesSwipeStartY = 0;
 let rulesSwipeIgnore = false;
 const BUILD_SEEN_KEY = "ohotminimum_seen_build_id";
+let trainerReturnContext = null;
 
 const RULE_GROUPS = [
   {
@@ -229,8 +229,7 @@ function setActiveTab(tab) {
   }
 
   if (!trainerActive) {
-    openedFromRules = false;
-    backToRulesBtn.classList.add("hidden");
+    updateTrainerReturnControls();
   }
 }
 
@@ -250,11 +249,51 @@ function setTrainerMode(mode) {
   trainerClassicPanelEl.classList.toggle("hidden", !classic);
   trainerThemePanelEl.classList.toggle("hidden", !theme);
   trainerAntiHeurPanelEl.classList.toggle("hidden", !antiHeur);
+  updateTrainerReturnControls();
+}
 
-  if (!classic) {
-    openedFromRules = false;
-    backToRulesBtn.classList.add("hidden");
+function updateTrainerReturnControls() {
+  if (trainerReturnContext) {
+    backToRulesBtn.classList.remove("hidden");
+    backToRulesBtn.textContent = `← Вернуться к ${trainerReturnContext.label}`;
+    prevBtn.textContent = "Назад к разделу";
+    return;
   }
+  backToRulesBtn.classList.add("hidden");
+  backToRulesBtn.textContent = "← Вернуться к разделу";
+  prevBtn.textContent = "Назад";
+}
+
+function restoreTrainerReturnContext() {
+  if (!trainerReturnContext) return false;
+  const ctx = trainerReturnContext;
+  trainerReturnContext = null;
+  updateTrainerReturnControls();
+
+  if (ctx.tab === "rules") {
+    if (!rulesBuilt) {
+      renderRulesThemes();
+      rulesBuilt = true;
+    }
+    setActiveTab("rules");
+    setRulesMode(ctx.rulesMode || "rule");
+    if (ctx.rulesMode === "rule" && ctx.rulesThemeId) {
+      selectRulesTheme(ctx.rulesThemeId);
+    }
+    if (ctx.rulesMode === "date" && ctx.dateThemeId) {
+      selectDateTheme(ctx.dateThemeId);
+    }
+    return true;
+  }
+
+  if (ctx.tab === "trainer") {
+    setActiveTab("trainer");
+    setTrainerMode(ctx.trainerMode || "classic");
+    return true;
+  }
+
+  setActiveTab(ctx.tab || "trainer");
+  return true;
 }
 
 function setupTrainerSwipe() {
@@ -356,17 +395,16 @@ function renderQuestion() {
   nextBtn.disabled = index === questions.length - 1;
 }
 
-function openQuestionById(id, fromRules = false) {
+function openQuestionById(id, returnContext = null) {
   const nextIndex = questions.findIndex((q) => q.id === id);
   if (nextIndex < 0) return;
 
+  trainerReturnContext = returnContext;
   index = nextIndex;
   renderQuestion();
   setTrainerMode("classic");
   setActiveTab("trainer");
-
-  openedFromRules = fromRules;
-  backToRulesBtn.classList.toggle("hidden", !openedFromRules);
+  updateTrainerReturnControls();
 }
 
 function refreshThemeDrillThemes() {
@@ -758,7 +796,9 @@ function renderRulesThemeContent(themeId) {
     openBtn.type = "button";
     openBtn.className = "item-link";
     openBtn.textContent = `К вопросу #${q.id}`;
-    openBtn.addEventListener("click", () => openQuestionById(q.id, true));
+    openBtn.addEventListener("click", () =>
+      openQuestionById(q.id, { tab: "rules", rulesMode: "rule", rulesThemeId: activeRulesThemeId, label: "правилам" })
+    );
     actions.appendChild(openBtn);
 
     head.append(title, id);
@@ -812,7 +852,9 @@ function renderDateThemeContent(themeId) {
     openBtn.type = "button";
     openBtn.className = "item-link";
     openBtn.textContent = `К вопросу #${q.id}`;
-    openBtn.addEventListener("click", () => openQuestionById(q.id, true));
+    openBtn.addEventListener("click", () =>
+      openQuestionById(q.id, { tab: "rules", rulesMode: "date", dateThemeId: activeDateThemeId, label: "датам" })
+    );
     actions.appendChild(openBtn);
 
     head.append(title, id);
@@ -1039,7 +1081,9 @@ function renderAntiHeuristicPanel() {
     openBtn.type = "button";
     openBtn.className = "item-link";
     openBtn.textContent = `Открыть вопрос #${q.id}`;
-    openBtn.addEventListener("click", () => openQuestionById(q.id, false));
+    openBtn.addEventListener("click", () =>
+      openQuestionById(q.id, { tab: "trainer", trainerMode: "anti-heur", label: "анти-эвристикам" })
+    );
     actions.appendChild(openBtn);
 
     row.append(title, reason, answerText, actions);
@@ -1453,6 +1497,7 @@ async function bootstrap() {
 }
 
 prevBtn.addEventListener("click", () => {
+  if (restoreTrainerReturnContext()) return;
   if (index > 0) {
     index -= 1;
     renderQuestion();
@@ -1466,7 +1511,11 @@ nextBtn.addEventListener("click", () => {
   }
 });
 
-backToRulesBtn.addEventListener("click", () => setActiveTab("rules"));
+backToRulesBtn.addEventListener("click", () => {
+  if (!restoreTrainerReturnContext()) {
+    setActiveTab("rules");
+  }
+});
 startThemeDrillBtn.addEventListener("click", () => startThemeDrill());
 themeDrillNextBtn.addEventListener("click", () => nextThemeDrillQuestion());
 trainerModeClassicBtn.addEventListener("click", () => setTrainerMode("classic"));
