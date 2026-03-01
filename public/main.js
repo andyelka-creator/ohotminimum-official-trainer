@@ -4,6 +4,7 @@ const tabsEl = document.getElementById("tabs");
 const tabTrainerBtn = document.getElementById("tabTrainer");
 const tabRulesBtn = document.getElementById("tabRules");
 const tabExamBtn = document.getElementById("tabExam");
+const tabInsightsBtn = document.getElementById("tabInsights");
 
 const trainerEl = document.getElementById("trainer");
 const questionTextEl = document.getElementById("questionText");
@@ -24,6 +25,9 @@ const examQuestionEl = document.getElementById("examQuestion");
 const examOptionsEl = document.getElementById("examOptions");
 const examFeedbackEl = document.getElementById("examFeedback");
 const examNextBtn = document.getElementById("examNextBtn");
+
+const insightsEl = document.getElementById("insights");
+const insightsSummaryEl = document.getElementById("insightsSummary");
 
 let questions = [];
 let index = 0;
@@ -85,14 +89,17 @@ function setActiveTab(tab) {
   const trainerActive = tab === "trainer";
   const rulesActive = tab === "rules";
   const examActive = tab === "exam";
+  const insightsActive = tab === "insights";
 
   tabState(tabTrainerBtn, trainerActive);
   tabState(tabRulesBtn, rulesActive);
   tabState(tabExamBtn, examActive);
+  tabState(tabInsightsBtn, insightsActive);
 
   trainerEl.classList.toggle("hidden", !trainerActive);
   rulesEl.classList.toggle("hidden", !rulesActive);
   examEl.classList.toggle("hidden", !examActive);
+  insightsEl.classList.toggle("hidden", !insightsActive);
 
   if (!trainerActive) {
     openedFromRules = false;
@@ -485,6 +492,53 @@ function nextExamQuestion() {
   renderExam();
 }
 
+function pct(part, total) {
+  return total > 0 ? ((part / total) * 100).toFixed(1) : "0.0";
+}
+
+function buildInsights() {
+  insightsSummaryEl.innerHTML = "";
+  const total = questions.length;
+  if (!total) return;
+
+  let strictLongest = 0;
+  let longestOrTie = 0;
+  const byPosition = [0, 0, 0];
+
+  for (const q of questions) {
+    const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
+    const correctLen = lengths[q.correctIndex];
+    const maxLen = Math.max(...lengths);
+    const maxCount = lengths.filter((len) => len === maxLen).length;
+    if (correctLen === maxLen) {
+      longestOrTie += 1;
+      if (maxCount === 1) {
+        strictLongest += 1;
+      }
+    }
+    byPosition[q.correctIndex] += 1;
+  }
+
+  const block = document.createElement("article");
+  block.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-4";
+  block.innerHTML = `
+    <p class="text-sm">По вашему текущему банку (${total} вопросов):</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <li>правильный ответ строго самый длинный: <strong>${strictLongest} / ${total}</strong> (≈ ${pct(strictLongest, total)}%)</li>
+      <li>правильный ответ самый длинный или в ничьей по длине: <strong>${longestOrTie} / ${total}</strong> (≈ ${pct(longestOrTie, total)}%)</li>
+    </ul>
+    <p class="mt-3 text-sm">Распределение позиции правильного варианта:</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <li>а (index 0): <strong>${byPosition[0]}</strong></li>
+      <li>б (index 1): <strong>${byPosition[1]}</strong></li>
+      <li>в (index 2): <strong>${byPosition[2]}</strong></li>
+    </ul>
+    <p class="mt-3 text-sm text-appmuted">Вывод: шаблон есть, но опираться только на длину и позицию рискованно.</p>
+  `;
+
+  insightsSummaryEl.appendChild(block);
+}
+
 async function bootstrap() {
   try {
     let payload;
@@ -503,9 +557,11 @@ async function bootstrap() {
     trainerEl.classList.remove("hidden");
     rulesEl.classList.remove("hidden");
     examEl.classList.remove("hidden");
+    insightsEl.classList.remove("hidden");
 
     buildRuleGroups();
     buildDateMatrix();
+    buildInsights();
     renderQuestion();
     startExam();
     setActiveTab("trainer");
@@ -533,6 +589,7 @@ backToRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
 tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 tabExamBtn.addEventListener("click", () => setActiveTab("exam"));
+tabInsightsBtn.addEventListener("click", () => setActiveTab("insights"));
 
 restartExamBtn.addEventListener("click", () => startExam());
 examOrderEl.addEventListener("change", () => startExam());

@@ -45,6 +45,7 @@
         <button id="tabTrainer" class="tab-btn active" type="button">Тренажер</button>
         <button id="tabRules" class="tab-btn" type="button">Правила и даты</button>
         <button id="tabExam" class="tab-btn" type="button">Экзамен</button>
+        <button id="tabInsights" class="tab-btn" type="button">Занимательно</button>
       </nav>
 
       <section id="trainer" class="panel hidden">
@@ -89,6 +90,12 @@
         <div class="mt-4 flex gap-2">
           <button id="examNextBtn" class="action-btn" type="button" disabled>Далее</button>
         </div>
+      </section>
+
+      <section id="insights" class="panel hidden">
+        <h2 class="text-xl font-semibold">Занимательная информация</h2>
+        <p class="mt-2 text-sm text-appmuted">Статистика автоматически считается по текущему официальному банку.</p>
+        <div id="insightsSummary" class="mt-4 grid gap-3"></div>
       </section>
 
       <footer class="mt-6 rounded-xl border border-slate-800/70 bg-slate-950/40 px-4 py-3 text-xs text-appmuted">
