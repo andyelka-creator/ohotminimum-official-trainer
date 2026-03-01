@@ -516,7 +516,14 @@ function normalizeChoiceLabel(raw: string): "A" | "B" | "C" {
 
 function validateWithZod(questions: OfficialQuestion[], expectedCount: number): OfficialBank {
   if (questions.length !== expectedCount) {
-    throw new Error(`Expected ${expectedCount} questions, got ${questions.length}`);
+    const ids = new Set(questions.map((q) => q.id));
+    const missing: number[] = [];
+    for (let i = 1; i <= expectedCount; i++) {
+      if (!ids.has(i)) missing.push(i);
+    }
+    throw new Error(
+      `Expected ${expectedCount} questions, got ${questions.length}. Missing ids: ${missing.join(", ") || "<none>"}`
+    );
   }
 
   const ids = new Set<number>();
