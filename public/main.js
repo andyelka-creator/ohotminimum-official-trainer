@@ -497,7 +497,7 @@ async function bootstrap() {
 
     questions = payload.questions;
     statusEl.className = "rounded-xl border border-appaccent bg-apppanel p-4 text-sm";
-    statusEl.textContent = `READY • HASH ${payload.hash} • ${questions.length} вопросов`;
+    statusEl.textContent = "Готово к обучению";
 
     tabsEl.classList.remove("hidden");
     trainerEl.classList.remove("hidden");
