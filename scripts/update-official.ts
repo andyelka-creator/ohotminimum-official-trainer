@@ -294,9 +294,12 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
     const id = Number(idMatch[1]);
 
     const body = block.replace(/^Вопрос\s*№?\s*\d{1,3}(?:\s*[\.:])?\s*/i, "");
+    const answerMarker = body.search(/\n\s*Правильный\s+ответ\s*[-:]/i);
+    const optionsSection = answerMarker >= 0 ? body.slice(0, answerMarker) : body;
+
     const optionRegex =
-      /(?:^|\n)\s*([абвabcАБВABC])\s*[\).:-]\s*([\s\S]*?)(?=(?:\n\s*[абвabcАБВABC]\s*[\).:-]\s*)|(?:\n\s*Правильный\s+ответ\s*[-:])|$)/gi;
-    const options = [...body.matchAll(optionRegex)]
+      /(?:^|\n)\s*([абвиabcАБВИABC])\s*[\).:-]\s*([\s\S]*?)(?=(?:\n\s*[абвиabcАБВИABC]\s*[\).:-]\s*)|$)/gi;
+    const options = [...optionsSection.matchAll(optionRegex)]
       .map((m) => ({
       label: normalizeChoiceLabel(m[1]),
       text: normalizeInlineText(m[2]),
@@ -306,13 +309,13 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
     if (options.length !== 3) continue;
     if (options.some((o) => !o.text)) continue;
 
-    const firstOptionIdx = body.search(/(?:^|\n|\s)[абвabcАБВABC]\s*[\)\.\-:]\s*/i);
+    const firstOptionIdx = body.search(/(?:^|\n|\s)[абвиabcАБВИABC]\s*[\)\.\-:]\s*/i);
     if (firstOptionIdx < 0) continue;
 
     const questionText = normalizeInlineText(body.slice(0, firstOptionIdx));
     if (!questionText) continue;
 
-    const correctByLetter = body.match(/Правильный\s+ответ\s*[\-:]\s*([абвabcАБВABC])(?:\s*[\)\.\-:])?/i);
+    const correctByLetter = body.match(/Правильный\s+ответ\s*[\-:]\s*([абвиabcАБВИABC])(?:\s*[\)\.\-:])?/i);
     let correctIndex = -1;
 
     if (correctByLetter) {
@@ -475,6 +478,7 @@ function normalizeChoiceLabel(raw: string): "A" | "B" | "C" {
   const up = raw.toUpperCase();
   if (up === "А" || up === "A") return "A";
   if (up === "Б" || up === "B") return "B";
+  if (up === "И") return "C";
   return "C";
 }
 
