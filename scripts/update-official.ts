@@ -281,7 +281,7 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
 
     const body = block.replace(/^Вопрос\s*№?\s*\d{1,3}(?:\s*[\.:])?\s*/i, "");
     const optionRegex =
-      /(?:^|\n|\s)\s*([абвabcАБВABC])\s*[\)\.\-:]\s*([\s\S]*?)(?=(?:\n|\s)\s*[абвabcАБВABC]\s*[\)\.\-:]\s*|(?:\n|\s)\s*Правильный\s+ответ\s*[\-:])|$)/gi;
+      /(?:^|\n)\s*([абвabcАБВABC])\s*[\).:-]\s*([\s\S]*?)(?=(?:\n\s*[абвabcАБВABC]\s*[\).:-]\s*)|(?:\n\s*Правильный\s+ответ\s*[-:])|$)/gi;
     const options = [...body.matchAll(optionRegex)]
       .map((m) => ({
       label: normalizeChoiceLabel(m[1]),
