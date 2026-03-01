@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -18,6 +18,16 @@ for (const file of ["official_bank.json", "official_bank.hash", "official_versio
   if (existsSync(src)) {
     cpSync(src, path.join(pagesDataDir, file));
   }
+}
+
+const indexPath = path.join(outDir, "index.html");
+if (existsSync(indexPath)) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const buildTime = `${hh}:${mm}`;
+  const html = readFileSync(indexPath, "utf8").replace(/__BUILD_HHMM__/g, buildTime);
+  writeFileSync(indexPath, html, "utf8");
 }
 
 writeFileSync(path.join(outDir, ".nojekyll"), "\n", "utf8");
