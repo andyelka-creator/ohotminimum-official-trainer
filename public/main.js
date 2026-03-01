@@ -444,6 +444,11 @@ function normalizeMinutesPerQuestion(rawValue) {
   return Math.max(1, safe);
 }
 
+function passingScore(total) {
+  // Passing rule: at least 75% of maximum possible points.
+  return Math.ceil(total * 0.75);
+}
+
 function startExam() {
   clearExamTimers();
   examState.orderMode = examOrderEl.value;
@@ -486,7 +491,8 @@ function renderExamStats() {
   const current = total ? Math.min(examState.position + 1, total) : 0;
   const answeredCount = examState.position + (examState.answered ? 1 : 0);
   const left = formatDurationMs(remainingMs());
-  examStatsEl.textContent = `Вопрос ${current} / ${total} • Отвечено: ${answeredCount} • Осталось: ${left}`;
+  const needed = passingScore(total);
+  examStatsEl.textContent = `Вопрос ${current} / ${total} • Отвечено: ${answeredCount} • Верных: ${examState.correct} • Для сдачи: ${needed} • Осталось: ${left}`;
 }
 
 function setFeedback(text, type = "") {
@@ -565,13 +571,15 @@ function finalizeExam(reason) {
 
   const total = examState.queue.length;
   const percent = total ? ((examState.correct / total) * 100).toFixed(1) : "0.0";
+  const needed = passingScore(total);
+  const passed = examState.correct >= needed;
   const elapsed = formatDurationMs(elapsedMs());
 
   examOptionsEl.innerHTML = "";
   examNextBtn.disabled = true;
   setFeedback("");
   renderExamStats();
-  examQuestionEl.textContent = `${reason} Результат: ${examState.correct} из ${total} (${percent}%). Затраченное время: ${elapsed}.`;
+  examQuestionEl.textContent = `${reason} Результат: ${examState.correct} из ${total} (${percent}%). Проходной балл: ${needed}. Статус: ${passed ? "СДАНО" : "НЕ СДАНО"}. Затраченное время: ${elapsed}.`;
 }
 
 function pct(part, total) {
