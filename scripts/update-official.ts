@@ -418,17 +418,34 @@ function buildConfidence(questions: OfficialQuestion[], expectedCount: number): 
 }
 
 function dedupeByIdKeepFirst(questions: OfficialQuestion[], source: string): OfficialQuestion[] {
-  const seen = new Set<number>();
-  const out: OfficialQuestion[] = [];
+  const byId = new Map<number, OfficialQuestion>();
   for (const q of questions) {
-    if (seen.has(q.id)) {
-      console.warn(`[WARN] Duplicate id in ${source}: ${q.id}. Keeping first occurrence.`);
+    const existing = byId.get(q.id);
+    if (!existing) {
+      byId.set(q.id, q);
       continue;
     }
-    seen.add(q.id);
-    out.push(q);
+
+    const resolved = resolveDuplicateQuestion(existing, q);
+    byId.set(q.id, resolved);
+    console.warn(`[WARN] Duplicate id in ${source}: ${q.id}. Resolved by deterministic rule.`);
   }
-  return out;
+
+  return [...byId.values()].sort((a, b) => a.id - b.id);
+}
+
+function resolveDuplicateQuestion(current: OfficialQuestion, candidate: OfficialQuestion): OfficialQuestion {
+  // Source-specific correction from official publication mirror:
+  // for question 118 prefer the variant with "частичная раскопка нор барсука..."
+  if (current.id === 118) {
+    const marker = "частичная раскопка нор барсука";
+    const curHas = current.text.toLowerCase().includes(marker);
+    const candHas = candidate.text.toLowerCase().includes(marker);
+    if (candHas && !curHas) return candidate;
+    if (curHas) return current;
+  }
+
+  return current;
 }
 
 function normalizeText(input: string): string {
