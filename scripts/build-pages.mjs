@@ -23,20 +23,26 @@ for (const file of ["official_bank.json", "official_bank.hash", "official_versio
 
 const indexPath = path.join(outDir, "index.html");
 if (existsSync(indexPath)) {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const buildTime = `${hh}:${mm}`;
+  const buildTime = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Europe/Moscow",
+  }).format(new Date());
   const html = readFileSync(indexPath, "utf8").replace(/__BUILD_HHMM__/g, buildTime);
   writeFileSync(indexPath, html, "utf8");
 }
 
 const buildNow = new Date();
-const buildHH = String(buildNow.getHours()).padStart(2, "0");
-const buildMM = String(buildNow.getMinutes()).padStart(2, "0");
+const buildTimeMoscow = new Intl.DateTimeFormat("ru-RU", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "Europe/Moscow",
+}).format(buildNow);
 const buildMeta = {
   buildId: String(buildNow.getTime()),
-  buildTime: `${buildHH}:${buildMM}`,
+  buildTime: buildTimeMoscow,
   builtAtIso: buildNow.toISOString(),
 };
 writeFileSync(buildMetaPath, `${JSON.stringify(buildMeta, null, 2)}\n`, "utf8");
