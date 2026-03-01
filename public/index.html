@@ -73,13 +73,29 @@
 
       <section id="exam" class="panel hidden">
         <h2 class="text-xl font-semibold">Экзамен</h2>
+        <p class="mt-2 text-sm text-appmuted">
+          Формат проверки знаний: 100-200 вопросов, время не менее 1 минуты на вопрос.
+        </p>
+        <p class="mt-1 text-xs text-appmuted">
+          В ходе тестирования заявитель проходит проверку самостоятельно; использование справочных материалов и средств мобильной связи не допускается.
+        </p>
+
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <label for="examOrder" class="text-sm text-appmuted">Порядок вопросов:</label>
           <select id="examOrder" class="select-field">
             <option value="sequential">По порядку</option>
             <option value="random">Случайно (без повторов)</option>
           </select>
-          <button id="restartExamBtn" class="action-btn" type="button">Начать заново</button>
+          <label for="examCount" class="text-sm text-appmuted">Количество вопросов:</label>
+          <select id="examCount" class="select-field">
+            <option value="100">100</option>
+            <option value="120">120</option>
+            <option value="150">150</option>
+            <option value="200">200</option>
+          </select>
+          <label for="minutesPerQuestion" class="text-sm text-appmuted">Минут на вопрос:</label>
+          <input id="minutesPerQuestion" class="select-field w-20" type="number" min="1" step="1" value="1" />
+          <button id="restartExamBtn" class="action-btn" type="button">Начать экзамен</button>
         </div>
 
         <div id="examStats" class="mt-4 text-sm text-appmuted"></div>
@@ -89,6 +105,7 @@
 
         <div class="mt-4 flex gap-2">
           <button id="examNextBtn" class="action-btn" type="button" disabled>Далее</button>
+          <button id="finishExamBtn" class="ghost-btn" type="button">Завершить досрочно</button>
         </div>
       </section>
 
