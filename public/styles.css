@@ -120,6 +120,23 @@
   min-width: max-content;
 }
 
+.mode-switch-track {
+  height: 6px;
+  width: 100%;
+  border-radius: 999px;
+  background: rgb(30 41 59 / 0.85);
+  overflow: hidden;
+}
+
+.mode-switch-pill {
+  height: 100%;
+  width: 50%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(34 197 94 / 0.95), rgb(16 185 129 / 0.95));
+  transform: translateX(0%);
+  transition: transform 180ms ease-out;
+}
+
 .exam-sticky-top {
   position: sticky;
   top: 0.4rem;

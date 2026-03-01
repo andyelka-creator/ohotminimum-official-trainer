@@ -29,6 +29,7 @@ const rulesEl = document.getElementById("rules");
 const rulesSwipeAreaEl = document.getElementById("rulesSwipeArea");
 const rulesModeRuleBtn = document.getElementById("rulesModeRuleBtn");
 const rulesModeDateBtn = document.getElementById("rulesModeDateBtn");
+const rulesModeIndicatorEl = document.getElementById("rulesModeIndicator");
 const rulesRulePanelEl = document.getElementById("rulesRulePanel");
 const rulesDatePanelEl = document.getElementById("rulesDatePanel");
 const rulesTopicTabsEl = document.getElementById("rulesTopicTabs");
@@ -241,6 +242,13 @@ function setRulesMode(mode) {
   rulesModeDateBtn.className = isRule ? "tab-btn" : "tab-btn active";
   rulesRulePanelEl.classList.toggle("hidden", !isRule);
   rulesDatePanelEl.classList.toggle("hidden", isRule);
+  renderRulesModeIndicator();
+}
+
+function renderRulesModeIndicator() {
+  if (!rulesModeIndicatorEl) return;
+  // Two pages => move the indicator to left(0%) or right(100%) half.
+  rulesModeIndicatorEl.style.transform = rulesMode === "date" ? "translateX(100%)" : "translateX(0%)";
 }
 
 function setupRulesSwipe() {
