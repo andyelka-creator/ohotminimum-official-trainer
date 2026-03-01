@@ -339,7 +339,8 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
     });
   }
 
-  return buildConfidence(questions, expectedCount);
+  const uniqueQuestions = dedupeByIdKeepFirst(questions, "garant-html");
+  return buildConfidence(uniqueQuestions, expectedCount);
 }
 
 function splitBlocksByPoints(text: string, points: RegExpMatchArray[]): string[] {
@@ -414,6 +415,20 @@ function buildConfidence(questions: OfficialQuestion[], expectedCount: number): 
 
   const confidence = Number((idCoverage * 0.4 + structureQuality * 0.35 + countQuality * 0.15 + orderQuality * 0.1).toFixed(4));
   return { questions, confidence };
+}
+
+function dedupeByIdKeepFirst(questions: OfficialQuestion[], source: string): OfficialQuestion[] {
+  const seen = new Set<number>();
+  const out: OfficialQuestion[] = [];
+  for (const q of questions) {
+    if (seen.has(q.id)) {
+      console.warn(`[WARN] Duplicate id in ${source}: ${q.id}. Keeping first occurrence.`);
+      continue;
+    }
+    seen.add(q.id);
+    out.push(q);
+  }
+  return out;
 }
 
 function normalizeText(input: string): string {
