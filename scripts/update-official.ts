@@ -302,7 +302,7 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
     const options = [...optionsSection.matchAll(optionRegex)]
       .map((m) => ({
       label: normalizeChoiceLabel(m[1]),
-      text: normalizeInlineText(m[2]),
+      text: normalizeAnswerOptionText(m[2]),
       }))
       .filter((o) => Boolean(o.text));
 
@@ -389,7 +389,7 @@ function parseQuestionsFromPdfText(text: string, expectedCount: number): ParsedR
 
     const questionText = normalizeInlineText(answerSplit[0]);
     const detected = answerSplit.slice(1, 4).map((line) => detectAnswer(line));
-    const answersRaw = detected.map((item) => item.text);
+    const answersRaw = detected.map((item) => normalizeAnswerOptionText(item.text));
     const labels = detected.map((item) => item.label);
 
     if (answersRaw.some((a) => !a)) continue;
@@ -461,6 +461,11 @@ function normalizeInlineText(input: string): string {
   return input.replace(/\s+/g, " ").trim();
 }
 
+function normalizeAnswerOptionText(input: string): string {
+  // Garant mirror may include trailing marker artifacts like ";#" in options.
+  return normalizeInlineText(input).replace(/\s*#\s*$/g, "").trim();
+}
+
 function normalizeAnswerKeyText(input: string): string {
   return normalizeInlineText(input.replace(/^([абвabcАБВABC]|[#*\-–—])\)?\s*/i, ""));
 }
@@ -525,7 +530,7 @@ function detectAnswer(line: string): { label: "A" | "B" | "C"; text: string; isC
   const label = normalizeChoiceLabel(m[1]);
   const withoutPrefix = m[2].trim();
   const isCorrect = /^(\*|\+|\(\+\)|\[верно\])/i.test(withoutPrefix);
-  const text = normalizeInlineText(withoutPrefix.replace(/^(\*|\+|\(\+\)|\[верно\])\s*/i, ""));
+  const text = normalizeAnswerOptionText(withoutPrefix.replace(/^(\*|\+|\(\+\)|\[верно\])\s*/i, ""));
   return { label, text, isCorrect };
 }
 
