@@ -556,6 +556,18 @@ function isDateQuestion(q) {
   return /срок|сроки|в какие сроки|продолжительность сезона|осуществляется охота|с\s+\d{1,2}|по\s+\d{1,2}/i.test(t + " " + a);
 }
 
+function isMemorizationDateQuestion(q) {
+  const combined = `${q.text} ${q.answers[q.correctIndex]}`.toLowerCase();
+  // Questions that are primarily factual date/duration recall.
+  return (
+    /в какие сроки/i.test(combined) ||
+    /срок охоты/i.test(combined) ||
+    /продолжительность сезона/i.test(combined) ||
+    /с\s+\d{1,2}\s+[а-яё]+\s+по\s+\d{1,2}\s+[а-яё]+/i.test(combined) ||
+    /по\s+\d{1,2}\s+[а-яё]+/i.test(combined)
+  );
+}
+
 function buildRulesThemes() {
   const ruleThemes = [];
   const builtDateThemes = [];
@@ -1227,6 +1239,7 @@ function buildInsights() {
   let strictLongest = 0;
   let longestOrTie = 0;
   const byPosition = [0, 0, 0];
+  const memorizationDateCount = questions.filter((q) => isMemorizationDateQuestion(q)).length;
 
   for (const q of questions) {
     const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
@@ -1246,6 +1259,10 @@ function buildInsights() {
   block.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-4";
   block.innerHTML = `
     <p class="text-sm">По вашему текущему банку (${total} вопросов):</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <li>вопросы на заучивание конкретных дат/сроков: <strong>${memorizationDateCount} / ${total}</strong> (≈ ${pct(memorizationDateCount, total)}%)</li>
+    </ul>
+    <p class="mt-3 text-xs text-appmuted">Критерий: вопросы о сроках начала/окончания охоты и длительности сезона.</p>
     <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
       <li>правильный ответ строго самый длинный: <strong>${strictLongest} / ${total}</strong> (≈ ${pct(strictLongest, total)}%)</li>
       <li>правильный ответ самый длинный или в ничьей по длине: <strong>${longestOrTie} / ${total}</strong> (≈ ${pct(longestOrTie, total)}%)</li>
