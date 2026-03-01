@@ -12,10 +12,18 @@ const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const backToRulesBtn = document.getElementById("backToRulesBtn");
+const themeTrainerSelectEl = document.getElementById("themeTrainerSelect");
+const startThemeDrillBtn = document.getElementById("startThemeDrillBtn");
+const themeDrillStatsEl = document.getElementById("themeDrillStats");
+const themeDrillQuestionEl = document.getElementById("themeDrillQuestion");
+const themeDrillOptionsEl = document.getElementById("themeDrillOptions");
+const themeDrillFeedbackEl = document.getElementById("themeDrillFeedback");
+const themeDrillNextBtn = document.getElementById("themeDrillNextBtn");
 
 const rulesEl = document.getElementById("rules");
-const rulesGridEl = document.getElementById("rulesGrid");
-const dateMatrixEl = document.getElementById("dateMatrix");
+const rulesTopicTabsEl = document.getElementById("rulesTopicTabs");
+const rulesTopicMetaEl = document.getElementById("rulesTopicMeta");
+const rulesTopicContentEl = document.getElementById("rulesTopicContent");
 
 const examEl = document.getElementById("exam");
 const examOrderEl = document.getElementById("examOrder");
@@ -39,6 +47,8 @@ let index = 0;
 let openedFromRules = false;
 let rulesBuilt = false;
 let insightsBuilt = false;
+let rulesThemes = [];
+let activeRulesThemeId = "";
 
 const RULE_GROUPS = [
   {
@@ -93,6 +103,15 @@ const examState = {
   started: false,
 };
 
+const themeDrillState = {
+  active: false,
+  themeId: "",
+  questionIds: [],
+  streakById: new Map(),
+  currentQuestionId: null,
+  answered: false,
+};
+
 function answerPrefix(index) {
   if (index === 0) return "а)";
   if (index === 1) return "б)";
@@ -128,8 +147,7 @@ function setActiveTab(tab) {
 
   // Lazy-render heavy sections only when the user opens them on mobile/web.
   if (rulesActive && !rulesBuilt) {
-    buildRuleGroups();
-    buildDateMatrix();
+    renderRulesThemes();
     rulesBuilt = true;
   }
   if (insightsActive && !insightsBuilt) {
@@ -175,6 +193,151 @@ function openQuestionById(id, fromRules = false) {
   backToRulesBtn.classList.toggle("hidden", !openedFromRules);
 }
 
+function refreshThemeDrillThemes() {
+  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
+  themeTrainerSelectEl.innerHTML = "";
+
+  for (const theme of sourceThemes) {
+    if (!theme.questions?.length) continue;
+    const opt = document.createElement("option");
+    opt.value = theme.id;
+    opt.textContent = `${theme.title} (${theme.questions.length})`;
+    themeTrainerSelectEl.appendChild(opt);
+  }
+
+  if (!themeTrainerSelectEl.value && themeTrainerSelectEl.options.length > 0) {
+    themeTrainerSelectEl.selectedIndex = 0;
+  }
+}
+
+function setThemeDrillFeedback(text, type = "") {
+  themeDrillFeedbackEl.textContent = text;
+  themeDrillFeedbackEl.className = `mt-2 min-h-6 text-sm ${type === "good" ? "text-appaccent" : type === "bad" ? "text-appdanger" : ""}`;
+}
+
+function randomItem(items) {
+  if (!items.length) return null;
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function startThemeDrill() {
+  const themeId = themeTrainerSelectEl.value;
+  const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
+  const theme = sourceThemes.find((t) => t.id === themeId);
+  if (!theme || !theme.questions?.length) {
+    setThemeDrillFeedback("Тема не выбрана или в теме нет вопросов.", "bad");
+    return;
+  }
+
+  // Learning loop: each question must have three consecutive correct answers.
+  themeDrillState.active = true;
+  themeDrillState.themeId = theme.id;
+  themeDrillState.questionIds = theme.questions.map((q) => q.id);
+  themeDrillState.streakById = new Map(themeDrillState.questionIds.map((id) => [id, 0]));
+  themeDrillState.currentQuestionId = null;
+  themeDrillState.answered = false;
+  setThemeDrillFeedback("");
+
+  nextThemeDrillQuestion();
+}
+
+function themeDrillPendingIds() {
+  return themeDrillState.questionIds.filter((id) => (themeDrillState.streakById.get(id) || 0) < 3);
+}
+
+function renderThemeDrillStats() {
+  if (!themeDrillState.active) {
+    themeDrillStatsEl.textContent = "Тренировка не запущена.";
+    return;
+  }
+  const total = themeDrillState.questionIds.length;
+  const mastered = themeDrillState.questionIds.filter((id) => (themeDrillState.streakById.get(id) || 0) >= 3).length;
+  const pending = total - mastered;
+  themeDrillStatsEl.textContent = `Освоено: ${mastered}/${total} • Осталось: ${pending} • Цель: 3 подряд на каждый вопрос`;
+}
+
+function renderThemeDrillCurrentQuestion() {
+  renderThemeDrillStats();
+  themeDrillOptionsEl.innerHTML = "";
+  themeDrillNextBtn.disabled = true;
+
+  if (!themeDrillState.active) {
+    themeDrillQuestionEl.textContent = "Выберите тему и нажмите «Начать тренировку».";
+    return;
+  }
+
+  if (!themeDrillState.currentQuestionId) {
+    themeDrillQuestionEl.textContent = "Тренировка завершена.";
+    themeDrillNextBtn.disabled = true;
+    return;
+  }
+
+  const q = questions.find((x) => x.id === themeDrillState.currentQuestionId);
+  if (!q) return;
+  const streak = themeDrillState.streakById.get(q.id) || 0;
+  themeDrillQuestionEl.textContent = `${q.id}. ${q.text} (серия: ${streak}/3)`;
+
+  q.answers.forEach((answer, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "exam-option";
+    btn.textContent = `${answerPrefix(i)} ${answer}`;
+    btn.disabled = themeDrillState.answered;
+    btn.addEventListener("click", () => submitThemeDrillAnswer(i));
+    themeDrillOptionsEl.appendChild(btn);
+  });
+}
+
+function submitThemeDrillAnswer(selectedIndex) {
+  if (!themeDrillState.active || themeDrillState.answered || !themeDrillState.currentQuestionId) return;
+  const q = questions.find((x) => x.id === themeDrillState.currentQuestionId);
+  if (!q) return;
+
+  themeDrillState.answered = true;
+  const buttons = [...themeDrillOptionsEl.querySelectorAll(".exam-option")];
+  buttons.forEach((btn) => (btn.disabled = true));
+
+  if (selectedIndex === q.correctIndex) {
+    const nextStreak = Math.min(3, (themeDrillState.streakById.get(q.id) || 0) + 1);
+    themeDrillState.streakById.set(q.id, nextStreak);
+    if (buttons[selectedIndex]) buttons[selectedIndex].classList.add("correct");
+    setThemeDrillFeedback("Верно. Серия увеличена.", "good");
+  } else {
+    themeDrillState.streakById.set(q.id, 0);
+    if (buttons[selectedIndex]) buttons[selectedIndex].classList.add("incorrect");
+    if (buttons[q.correctIndex]) buttons[q.correctIndex].classList.add("correct");
+    setThemeDrillFeedback("Неверно. Серия по вопросу сброшена до 0.", "bad");
+  }
+
+  renderThemeDrillStats();
+  themeDrillNextBtn.disabled = false;
+}
+
+function nextThemeDrillQuestion() {
+  if (!themeDrillState.active) return;
+
+  const pending = themeDrillPendingIds();
+  if (pending.length === 0) {
+    themeDrillState.currentQuestionId = null;
+    themeDrillState.answered = false;
+    renderThemeDrillCurrentQuestion();
+    setThemeDrillFeedback("Тема закреплена: на каждый вопрос получено 3 подряд верных ответа.", "good");
+    return;
+  }
+
+  // Wrong-answered questions naturally return to the random pool until streak reaches 3.
+  let nextId = randomItem(pending);
+  if (pending.length > 1 && nextId === themeDrillState.currentQuestionId) {
+    const others = pending.filter((id) => id !== themeDrillState.currentQuestionId);
+    nextId = randomItem(others) ?? nextId;
+  }
+
+  themeDrillState.currentQuestionId = nextId;
+  themeDrillState.answered = false;
+  setThemeDrillFeedback("");
+  renderThemeDrillCurrentQuestion();
+}
+
 function inferObjectLabel(q) {
   const text = `${q.text} ${q.answers[q.correctIndex]}`.toLowerCase();
   const pairs = [
@@ -207,75 +370,6 @@ function inferNormType(q) {
   return "Правило";
 }
 
-function buildRuleGroups() {
-  rulesGridEl.innerHTML = "";
-
-  for (const group of RULE_GROUPS) {
-    const matched = questions.filter((q) => group.matcher(q)).sort((a, b) => a.id - b.id);
-    if (matched.length === 0) continue;
-
-    const card = document.createElement("article");
-    card.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-3";
-
-    const title = document.createElement("h3");
-    title.className = "text-base font-semibold";
-    title.textContent = group.title;
-
-    const meta = document.createElement("p");
-    meta.className = "mt-1 text-xs text-appmuted";
-    meta.textContent = `${group.description} • ${matched.length} вопросов`;
-
-    const list = document.createElement("div");
-    list.className = "mt-3 grid gap-2";
-
-    matched.forEach((q) => {
-      const row = document.createElement("div");
-      row.className = "rounded-lg border border-slate-700 bg-slate-950/40 p-3";
-
-      const chips = document.createElement("div");
-      chips.className = "mb-2 flex flex-wrap gap-2";
-
-      const objectChip = document.createElement("span");
-      objectChip.className = "rounded-full border border-slate-600 px-2 py-0.5 text-xs text-appmuted";
-      objectChip.textContent = inferObjectLabel(q);
-
-      const ruleChip = document.createElement("span");
-      ruleChip.className = "rounded-full border border-emerald-700 px-2 py-0.5 text-xs text-emerald-300";
-      ruleChip.textContent = inferNormType(q);
-
-      chips.append(objectChip, ruleChip);
-
-      const itemTitle = document.createElement("p");
-      itemTitle.className = "text-sm text-appmuted";
-      itemTitle.textContent = `Вопрос: ${q.text}`;
-
-      const answerText = document.createElement("p");
-      answerText.className = "mt-2 text-sm";
-      answerText.textContent = `Правильный ответ: ${q.answers[q.correctIndex]}`;
-
-      const itemMeta = document.createElement("p");
-      itemMeta.className = "mt-1 text-xs text-appmuted";
-      itemMeta.textContent = `Вопрос #${q.id}`;
-
-      const actions = document.createElement("div");
-      actions.className = "mt-2";
-
-      const openBtn = document.createElement("button");
-      openBtn.type = "button";
-      openBtn.className = "item-link";
-      openBtn.textContent = `К вопросу #${q.id}`;
-      openBtn.addEventListener("click", () => openQuestionById(q.id, true));
-
-      actions.appendChild(openBtn);
-      row.append(chips, itemTitle, answerText, itemMeta, actions);
-      list.appendChild(row);
-    });
-
-    card.append(title, meta, list);
-    rulesGridEl.appendChild(card);
-  }
-}
-
 function extractPeriodText(answer) {
   const clean = answer.replace(/\s+/g, " ").trim();
   const range = clean.match(/с\s+\d{1,2}\s+[а-яё]+\s+по\s+\d{1,2}\s+[а-яё]+/i);
@@ -294,20 +388,94 @@ function inferDateCategory(q) {
   return "Срок охоты";
 }
 
-function buildDateMatrix() {
-  dateMatrixEl.innerHTML = "";
+function isDateQuestion(q) {
+  const t = q.text.toLowerCase();
+  const a = q.answers[q.correctIndex].toLowerCase();
+  return /срок|сроки|в какие сроки|продолжительность сезона|осуществляется охота|с\s+\d{1,2}|по\s+\d{1,2}/i.test(t + " " + a);
+}
 
-  const dateQuestions = questions
-    .filter((q) => {
-      const t = q.text.toLowerCase();
-      const a = q.answers[q.correctIndex].toLowerCase();
-      return /срок|сроки|в какие сроки|продолжительность сезона|осуществляется охота|с\s+\d{1,2}|по\s+\d{1,2}/i.test(t + " " + a);
-    })
-    .sort((a, b) => a.id - b.id);
+function buildRulesThemes() {
+  const themes = [];
 
-  dateQuestions.forEach((q) => {
+  RULE_GROUPS.forEach((group, idx) => {
+    const matched = questions.filter((q) => group.matcher(q)).sort((a, b) => a.id - b.id);
+    if (matched.length === 0) return;
+    themes.push({
+      id: `rule-${idx}`,
+      kind: "rule",
+      title: group.title,
+      description: group.description,
+      questions: matched,
+    });
+  });
+
+  const dateQuestions = questions.filter((q) => isDateQuestion(q)).sort((a, b) => a.id - b.id);
+  if (dateQuestions.length > 0) {
+    const byCategory = new Map();
+    for (const q of dateQuestions) {
+      const category = inferDateCategory(q);
+      const list = byCategory.get(category) || [];
+      list.push(q);
+      byCategory.set(category, list);
+    }
+    for (const [category, list] of byCategory.entries()) {
+      themes.push({
+        id: `date-${category.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}`,
+        kind: "date",
+        title: `Даты: ${category}`,
+        description: "Вопросы по срокам и периодам охоты в контексте объекта.",
+        questions: list.sort((a, b) => a.id - b.id),
+      });
+    }
+  }
+
+  return themes;
+}
+
+function renderRulesThemes() {
+  rulesThemes = buildRulesThemes();
+  rulesTopicTabsEl.innerHTML = "";
+  rulesTopicContentEl.innerHTML = "";
+  rulesTopicMetaEl.textContent = "";
+
+  if (rulesThemes.length === 0) {
+    rulesTopicMetaEl.textContent = "Нет доступных тематических блоков.";
+    return;
+  }
+
+  for (const theme of rulesThemes) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab-btn";
+    btn.textContent = theme.title;
+    btn.addEventListener("click", () => selectRulesTheme(theme.id));
+    rulesTopicTabsEl.appendChild(btn);
+  }
+
+  activeRulesThemeId = rulesThemes[0].id;
+  selectRulesTheme(activeRulesThemeId);
+  refreshThemeDrillThemes();
+}
+
+function selectRulesTheme(themeId) {
+  activeRulesThemeId = themeId;
+  const buttons = [...rulesTopicTabsEl.querySelectorAll(".tab-btn")];
+  buttons.forEach((btn, i) => {
+    const theme = rulesThemes[i];
+    btn.className = theme && theme.id === themeId ? "tab-btn active" : "tab-btn";
+  });
+  renderRulesThemeContent(themeId);
+}
+
+function renderRulesThemeContent(themeId) {
+  const theme = rulesThemes.find((t) => t.id === themeId);
+  rulesTopicContentEl.innerHTML = "";
+  if (!theme) return;
+
+  rulesTopicMetaEl.textContent = `${theme.description} • ${theme.questions.length} вопросов`;
+  for (const q of theme.questions) {
     const row = document.createElement("article");
-    row.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-3";
+    row.className = "rounded-lg border border-slate-700 bg-slate-900/30 p-3";
 
     const head = document.createElement("div");
     head.className = "flex flex-wrap items-center justify-between gap-2";
@@ -320,32 +488,30 @@ function buildDateMatrix() {
     id.className = "text-xs text-appmuted";
     id.textContent = `#${q.id}`;
 
-    const period = document.createElement("p");
-    period.className = "mt-2 text-sm";
-    period.textContent = extractPeriodText(q.answers[q.correctIndex]);
-
     const context = document.createElement("p");
     context.className = "mt-1 text-xs text-appmuted";
-    context.textContent = `${inferObjectLabel(q)} • ${inferDateCategory(q)}`;
+    context.textContent = `${inferObjectLabel(q)} • ${inferNormType(q)}`;
 
-    const questionLine = document.createElement("p");
-    questionLine.className = "mt-1 text-xs text-appmuted";
-    questionLine.textContent = `Вопрос: ${q.text}`;
+    const answerText = document.createElement("p");
+    answerText.className = "mt-2 text-sm";
+    answerText.textContent =
+      theme.kind === "date"
+        ? `Период: ${extractPeriodText(q.answers[q.correctIndex])}`
+        : `Правильный ответ: ${q.answers[q.correctIndex]}`;
 
     const actions = document.createElement("div");
     actions.className = "mt-2";
-
     const openBtn = document.createElement("button");
     openBtn.type = "button";
     openBtn.className = "item-link";
-    openBtn.textContent = `Открыть #${q.id}`;
+    openBtn.textContent = `К вопросу #${q.id}`;
     openBtn.addEventListener("click", () => openQuestionById(q.id, true));
-
     actions.appendChild(openBtn);
+
     head.append(title, id);
-    row.append(head, context, period, questionLine, actions);
-    dateMatrixEl.appendChild(row);
-  });
+    row.append(head, context, answerText, actions);
+    rulesTopicContentEl.appendChild(row);
+  }
 }
 
 function validateBank(bank) {
@@ -861,8 +1027,12 @@ async function bootstrap() {
     // We keep first paint fast and postpone heavy lists until the corresponding tab is opened.
     rulesBuilt = false;
     insightsBuilt = false;
+    rulesThemes = buildRulesThemes();
+    refreshThemeDrillThemes();
     renderQuestion();
     renderExamIdle();
+    renderThemeDrillStats();
+    renderThemeDrillCurrentQuestion();
     setActiveTab("trainer");
   } catch {
     renderNotReady();
@@ -884,6 +1054,8 @@ nextBtn.addEventListener("click", () => {
 });
 
 backToRulesBtn.addEventListener("click", () => setActiveTab("rules"));
+startThemeDrillBtn.addEventListener("click", () => startThemeDrill());
+themeDrillNextBtn.addEventListener("click", () => nextThemeDrillQuestion());
 
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
 tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));

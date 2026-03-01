@@ -59,16 +59,33 @@
           <button id="prevBtn" class="action-btn" type="button">Назад</button>
           <button id="nextBtn" class="action-btn" type="button">Далее</button>
         </div>
+
+        <div class="mt-6 rounded-xl border border-slate-700 bg-slate-900/35 p-3">
+          <h3 class="text-base font-semibold">Тренировка по темам</h3>
+          <p class="mt-1 text-xs text-appmuted">
+            Мини-экзамен по выбранной теме: каждый вопрос нужно ответить правильно 3 раза подряд.
+          </p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <label for="themeTrainerSelect" class="text-sm text-appmuted">Тема:</label>
+            <select id="themeTrainerSelect" class="select-field"></select>
+            <button id="startThemeDrillBtn" class="action-btn" type="button">Начать тренировку</button>
+          </div>
+          <div id="themeDrillStats" class="mt-3 text-sm text-appmuted"></div>
+          <div id="themeDrillQuestion" class="mt-2 text-base leading-relaxed sm:text-lg"></div>
+          <div id="themeDrillOptions" class="mt-3 grid gap-2"></div>
+          <div id="themeDrillFeedback" class="mt-2 min-h-6 text-sm"></div>
+          <div class="mt-3">
+            <button id="themeDrillNextBtn" class="action-btn" type="button" disabled>Следующий вопрос</button>
+          </div>
+        </div>
       </section>
 
       <section id="rules" class="panel hidden">
         <h2 class="text-xl font-semibold">Правила и ограничения</h2>
-        <p class="mt-2 text-sm text-appmuted">Контекстные карточки: объект, тип нормы, формулировка вопроса и правильный ответ вместе.</p>
-        <div id="rulesGrid" class="mt-4 grid gap-3"></div>
-
-        <h2 class="mt-7 text-xl font-semibold">Матрица дат охоты</h2>
-        <p class="mt-2 text-sm text-appmuted">Периоды в привязке к объекту и категории (чтобы не терялся смысл срока).</p>
-        <div id="dateMatrix" class="mt-4 grid gap-2"></div>
+        <p class="mt-2 text-sm text-appmuted">Закладки по темам: выбирай тему и получай компактный список релевантных вопросов.</p>
+        <div id="rulesTopicTabs" class="mt-4 flex flex-wrap gap-2"></div>
+        <div id="rulesTopicMeta" class="mt-2 text-xs text-appmuted"></div>
+        <div id="rulesTopicContent" class="mt-3 grid gap-3"></div>
       </section>
 
       <section id="exam" class="panel hidden">
