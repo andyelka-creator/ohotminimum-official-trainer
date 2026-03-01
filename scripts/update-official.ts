@@ -269,42 +269,43 @@ function parseQuestionsBySource(text: string, expectedCount: number, sourceType:
 
 function parseQuestionsFromGarantText(text: string, expectedCount: number): ParsedResult {
   const normalized = normalizeText(text);
-  const points = [...normalized.matchAll(/(?:^|\n)\s*Вопрос\s+(\d{1,3})\./g)];
+  const points = [...normalized.matchAll(/(?:^|\n)\s*Вопрос\s*№?\s*(\d{1,3})(?:\s*[\.:])?/gi)];
   const questions: OfficialQuestion[] = [];
 
-  for (let i = 0; i < points.length; i++) {
-    const start = points[i].index ?? 0;
-    const end = i + 1 < points.length ? points[i + 1].index ?? normalized.length : normalized.length;
-    const block = normalized.slice(start, end).trim();
+  const blocks = points.length > 0 ? splitBlocksByPoints(normalized, points) : splitBlocksFallback(normalized);
 
-    const idMatch = block.match(/^Вопрос\s+(\d{1,3})\./);
+  for (const block of blocks) {
+    const idMatch = block.match(/^Вопрос\s*№?\s*(\d{1,3})(?:\s*[\.:])?/i);
     if (!idMatch) continue;
     const id = Number(idMatch[1]);
 
-    const body = block.replace(/^Вопрос\s+\d{1,3}\.\s*/, "");
-    const optionRegex = /(?:^|\n)\s*([абвabcАБВABC])\)\s*([\s\S]*?)(?=(?:\n\s*[абвabcАБВABC]\)\s*)|(?:\n\s*Правильный ответ\s*:)|$)/gi;
-    const options = [...body.matchAll(optionRegex)].map((m) => ({
+    const body = block.replace(/^Вопрос\s*№?\s*\d{1,3}(?:\s*[\.:])?\s*/i, "");
+    const optionRegex =
+      /(?:^|\n|\s)\s*([абвabcАБВABC])\s*[\)\.\-:]\s*([\s\S]*?)(?=(?:\n|\s)\s*[абвabcАБВABC]\s*[\)\.\-:]\s*|(?:\n|\s)\s*Правильный\s+ответ\s*[\-:])|$)/gi;
+    const options = [...body.matchAll(optionRegex)]
+      .map((m) => ({
       label: normalizeChoiceLabel(m[1]),
       text: normalizeInlineText(m[2]),
-    }));
+      }))
+      .filter((o) => Boolean(o.text));
 
     if (options.length !== 3) continue;
     if (options.some((o) => !o.text)) continue;
 
-    const firstOptionIdx = body.search(/\n\s*[абвabcАБВABC]\)\s*/i);
+    const firstOptionIdx = body.search(/(?:^|\n|\s)[абвabcАБВABC]\s*[\)\.\-:]\s*/i);
     if (firstOptionIdx < 0) continue;
 
     const questionText = normalizeInlineText(body.slice(0, firstOptionIdx));
     if (!questionText) continue;
 
-    const correctByLetter = body.match(/Правильный ответ\s*:\s*([абвabcАБВABC])\)/i);
+    const correctByLetter = body.match(/Правильный\s+ответ\s*[\-:]\s*([абвabcАБВABC])(?:\s*[\)\.\-:])?/i);
     let correctIndex = -1;
 
     if (correctByLetter) {
       const letter = normalizeChoiceLabel(correctByLetter[1]);
       correctIndex = options.findIndex((o) => o.label === letter);
     } else {
-      const correctByText = body.match(/Правильный ответ\s*:\s*([^\n]+)/i);
+      const correctByText = body.match(/Правильный\s+ответ\s*[\-:]\s*([^\n]+)/i);
       if (correctByText) {
         const expectedText = normalizeAnswerKeyText(correctByText[1]);
         correctIndex = options.findIndex((o) => isAnswerTextMatch(o.text, expectedText));
@@ -322,6 +323,25 @@ function parseQuestionsFromGarantText(text: string, expectedCount: number): Pars
   }
 
   return buildConfidence(questions, expectedCount);
+}
+
+function splitBlocksByPoints(text: string, points: RegExpMatchArray[]): string[] {
+  const blocks: string[] = [];
+  for (let i = 0; i < points.length; i++) {
+    const start = points[i].index ?? 0;
+    const end = i + 1 < points.length ? points[i + 1].index ?? text.length : text.length;
+    blocks.push(text.slice(start, end).trim());
+  }
+  return blocks;
+}
+
+function splitBlocksFallback(text: string): string[] {
+  const out: string[] = [];
+  const re = /Вопрос\s*№?\s*\d{1,3}(?:\s*[\.:])?[\s\S]*?(?=Вопрос\s*№?\s*\d{1,3}(?:\s*[\.:])?|$)/gi;
+  for (const m of text.matchAll(re)) {
+    out.push(m[0].trim());
+  }
+  return out;
 }
 
 function parseQuestionsFromPdfText(text: string, expectedCount: number): ParsedResult {
