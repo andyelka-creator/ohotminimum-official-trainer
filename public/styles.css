@@ -30,8 +30,9 @@
   background: linear-gradient(180deg, rgb(51 65 85 / 1), rgb(30 41 59 / 1));
   color: rgb(241 245 249 / 1);
   border-radius: 0.55rem;
-  padding: 0.5rem 0.8rem;
+  padding: 0.7rem 0.95rem;
   font-weight: 600;
+  min-height: 44px;
 }
 
 .action-btn:disabled {
@@ -44,8 +45,9 @@
   background: rgb(15 23 42 / 0.8);
   color: rgb(191 219 254 / 1);
   border-radius: 0.55rem;
-  padding: 0.45rem 0.7rem;
+  padding: 0.65rem 0.9rem;
   font-size: 0.85rem;
+  min-height: 44px;
 }
 
 .item-link {
@@ -63,7 +65,8 @@
   border: 1px solid rgb(71 85 105 / 1);
   background: rgb(15 23 42 / 0.8);
   color: rgb(241 245 249 / 1);
-  padding: 0.45rem 0.55rem;
+  padding: 0.6rem 0.65rem;
+  min-height: 44px;
 }
 
 .exam-option {
@@ -72,7 +75,8 @@
   border-radius: 0.6rem;
   background: rgb(30 41 59 / 0.75);
   color: rgb(241 245 249 / 1);
-  padding: 0.65rem 0.8rem;
+  padding: 0.9rem 1rem;
+  min-height: 52px;
 }
 
 .exam-option.correct {
@@ -88,4 +92,37 @@
 .exam-option.strike {
   text-decoration: line-through;
   opacity: 0.85;
+}
+
+.exam-sticky-top {
+  position: sticky;
+  top: 0.4rem;
+  z-index: 15;
+  border: 1px solid rgb(51 65 85 / 0.95);
+  background: linear-gradient(180deg, rgb(15 23 42 / 0.96), rgb(15 23 42 / 0.9));
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.75rem;
+  backdrop-filter: blur(8px);
+}
+
+.exam-sticky-bottom {
+  position: sticky;
+  bottom: calc(0.35rem + env(safe-area-inset-bottom));
+  z-index: 20;
+  border: 1px solid rgb(51 65 85 / 0.95);
+  background: linear-gradient(180deg, rgb(15 23 42 / 0.97), rgb(15 23 42 / 0.93));
+  border-radius: 0.9rem;
+  padding: 0.55rem;
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 640px) {
+  .mobile-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tab-btn {
+    width: 100%;
+  }
 }

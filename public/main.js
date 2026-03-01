@@ -24,6 +24,7 @@ const minutesPerQuestionEl = document.getElementById("minutesPerQuestion");
 const restartExamBtn = document.getElementById("restartExamBtn");
 const examStatsEl = document.getElementById("examStats");
 const examQuestionTimerEl = document.getElementById("examQuestionTimer");
+const examProgressBarEl = document.getElementById("examProgressBar");
 const examQuestionEl = document.getElementById("examQuestion");
 const examOptionsEl = document.getElementById("examOptions");
 const examFeedbackEl = document.getElementById("examFeedback");
@@ -36,6 +37,8 @@ const insightsSummaryEl = document.getElementById("insightsSummary");
 let questions = [];
 let index = 0;
 let openedFromRules = false;
+let rulesBuilt = false;
+let insightsBuilt = false;
 
 const RULE_GROUPS = [
   {
@@ -122,6 +125,17 @@ function setActiveTab(tab) {
   rulesEl.classList.toggle("hidden", !rulesActive);
   examEl.classList.toggle("hidden", !examActive);
   insightsEl.classList.toggle("hidden", !insightsActive);
+
+  // Lazy-render heavy sections only when the user opens them on mobile/web.
+  if (rulesActive && !rulesBuilt) {
+    buildRuleGroups();
+    buildDateMatrix();
+    rulesBuilt = true;
+  }
+  if (insightsActive && !insightsBuilt) {
+    buildInsights();
+    insightsBuilt = true;
+  }
 
   if (!trainerActive) {
     openedFromRules = false;
@@ -524,6 +538,14 @@ function renderExamStats() {
   const left = formatDurationMs(remainingMs());
   const needed = passingScore(total);
   examStatsEl.textContent = `Вопрос ${current} / ${total} • Отвечено: ${answeredCount} • Верных: ${examState.correct} • Для сдачи: ${needed} • Осталось: ${left}`;
+  renderExamProgress();
+}
+
+function renderExamProgress() {
+  const total = examState.queue.length || 1;
+  const answeredCount = examState.position + (examState.answered ? 1 : 0);
+  const progressPct = Math.max(0, Math.min(100, (answeredCount / total) * 100));
+  examProgressBarEl.style.width = `${progressPct.toFixed(2)}%`;
 }
 
 function renderQuestionTimer() {
@@ -594,6 +616,7 @@ function renderExamIdle() {
   examQuestionEl.textContent = "Выберите параметры и нажмите «Начать экзамен».";
   examOptionsEl.innerHTML = "";
   setFeedback("");
+  examProgressBarEl.style.width = "0%";
   examNextBtn.disabled = true;
   examNextBtn.textContent = "Далее";
 }
@@ -730,6 +753,7 @@ function finalizeExam(reason) {
   setFeedback("");
   examQuestionTimerEl.textContent = "";
   renderExamStats();
+  examProgressBarEl.style.width = "100%";
   examQuestionEl.textContent = `${reason} Результат: ${examState.correct} из ${total} (${percent}%). Проходной балл: ${needed}. Статус: ${passed ? "СДАНО" : "НЕ СДАНО"}. Затраченное время: ${elapsed}.`;
 }
 
@@ -800,9 +824,9 @@ async function bootstrap() {
     examEl.classList.remove("hidden");
     insightsEl.classList.remove("hidden");
 
-    buildRuleGroups();
-    buildDateMatrix();
-    buildInsights();
+    // We keep first paint fast and postpone heavy lists until the corresponding tab is opened.
+    rulesBuilt = false;
+    insightsBuilt = false;
     renderQuestion();
     renderExamIdle();
     setActiveTab("trainer");
