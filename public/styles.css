@@ -116,6 +116,8 @@
 
 .h-scroll-tabs .tab-btn {
   flex: 0 0 auto;
+  width: auto;
+  min-width: max-content;
 }
 
 .exam-sticky-top {
@@ -146,7 +148,7 @@
     grid-template-columns: 1fr;
   }
 
-  .tab-btn {
+  #tabs .tab-btn {
     width: 100%;
   }
 }

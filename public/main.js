@@ -58,6 +58,7 @@ let activeTrainerThemeId = "";
 let trainerMode = "classic";
 let trainerSwipeStartX = 0;
 let trainerSwipeStartY = 0;
+let trainerSwipeIgnore = false;
 
 const RULE_GROUPS = [
   {
@@ -191,11 +192,21 @@ function setupTrainerSwipe() {
   trainerSwipeAreaEl.addEventListener("touchstart", (event) => {
     const t = event.changedTouches?.[0];
     if (!t) return;
+    const target = event.target;
+    trainerSwipeIgnore = Boolean(
+      target instanceof Element &&
+      target.closest(".h-scroll-tabs, button, select, input, textarea, label, a")
+    );
+    if (trainerSwipeIgnore) return;
     trainerSwipeStartX = t.clientX;
     trainerSwipeStartY = t.clientY;
   }, { passive: true });
 
   trainerSwipeAreaEl.addEventListener("touchend", (event) => {
+    if (trainerSwipeIgnore) {
+      trainerSwipeIgnore = false;
+      return;
+    }
     const t = event.changedTouches?.[0];
     if (!t) return;
     const dx = t.clientX - trainerSwipeStartX;
