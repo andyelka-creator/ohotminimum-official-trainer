@@ -1,71 +1,97 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Охотничий минимум — официальный тренажер</title>
+    <meta name="theme-color" content="#0B1220" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              appbg: "#0B1220",
+              apppanel: "#142033",
+              appmuted: "#8FA7C1",
+              appaccent: "#22C55E",
+              appdanger: "#FF6B6B"
+            }
+          }
+        }
+      };
+    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
-    <main class="app">
-      <header>
-        <h1>Охотничий минимум</h1>
-        <p>Официальный тренажер</p>
+  <body class="h-full bg-appbg text-slate-100">
+    <main class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <header class="mb-4">
+        <h1 class="text-3xl font-bold tracking-tight">Охотничий минимум</h1>
+        <p class="mt-1 text-appmuted">Официальный тренажер</p>
       </header>
 
-      <section id="status" class="status">Loading...</section>
+      <section id="status" class="rounded-xl border border-slate-700 bg-apppanel p-4 text-sm">Loading...</section>
 
-      <nav id="tabs" class="tabs hidden" aria-label="Разделы">
-        <button id="tabTrainer" class="tab active" type="button">Тренажер</button>
-        <button id="tabRules" class="tab" type="button">Правила и даты</button>
-        <button id="tabExam" class="tab" type="button">Экзамен</button>
+      <nav id="tabs" class="mt-4 hidden flex-wrap gap-2" aria-label="Разделы">
+        <button id="tabTrainer" class="tab-btn active" type="button">Тренажер</button>
+        <button id="tabRules" class="tab-btn" type="button">Правила и даты</button>
+        <button id="tabExam" class="tab-btn" type="button">Экзамен</button>
       </nav>
 
       <section id="trainer" class="panel hidden">
-        <div class="section-head">
-          <h2>Тренажер</h2>
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-xl font-semibold">Тренажер</h2>
           <button id="backToRulesBtn" class="ghost-btn hidden" type="button">← Вернуться к правилам и датам</button>
         </div>
-        <div id="questionText" class="question"></div>
-        <ol id="answers" class="answers"></ol>
-        <div class="toolbar">
-          <button id="prevBtn" type="button">Назад</button>
-          <button id="nextBtn" type="button">Далее</button>
+        <div id="questionText" class="mb-4 text-lg leading-relaxed"></div>
+        <ol id="answers" class="space-y-2"></ol>
+        <div class="mt-4 flex gap-2">
+          <button id="prevBtn" class="action-btn" type="button">Назад</button>
+          <button id="nextBtn" class="action-btn" type="button">Далее</button>
         </div>
       </section>
 
       <section id="rules" class="panel hidden">
-        <h2>Правила и ограничения</h2>
-        <p class="section-subtitle">Списки по ключевым правилам. Внутри каждого пункта можно открыть исходный вопрос.</p>
-        <div id="rulesGrid" class="rule-groups"></div>
+        <h2 class="text-xl font-semibold">Правила и ограничения</h2>
+        <p class="mt-2 text-sm text-appmuted">Списки по ключевым правилам. Внутри каждого пункта можно открыть исходный вопрос.</p>
+        <div id="rulesGrid" class="mt-4 grid gap-3"></div>
 
-        <h2 class="section-gap">Матрица дат охоты</h2>
-        <p class="section-subtitle">Сводный список вопросов, где ответ содержит период (начало/конец, сезон).</p>
-        <div id="dateMatrix" class="date-matrix"></div>
+        <h2 class="mt-7 text-xl font-semibold">Матрица дат охоты</h2>
+        <p class="mt-2 text-sm text-appmuted">Сводный список вопросов, где ответ содержит период (начало/конец, сезон).</p>
+        <div id="dateMatrix" class="mt-4 grid gap-2"></div>
       </section>
 
       <section id="exam" class="panel hidden">
-        <h2>Экзамен</h2>
-        <div class="exam-controls">
-          <label for="examOrder">Порядок вопросов:</label>
-          <select id="examOrder">
+        <h2 class="text-xl font-semibold">Экзамен</h2>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <label for="examOrder" class="text-sm text-appmuted">Порядок вопросов:</label>
+          <select id="examOrder" class="select-field">
             <option value="sequential">По порядку</option>
             <option value="random">Случайно (без повторов)</option>
           </select>
-          <button id="restartExamBtn" type="button">Начать заново</button>
+          <button id="restartExamBtn" class="action-btn" type="button">Начать заново</button>
         </div>
 
-        <div id="examStats" class="exam-stats"></div>
-        <div id="examQuestion" class="question"></div>
-        <div id="examOptions" class="exam-options"></div>
-        <div id="examFeedback" class="exam-feedback"></div>
+        <div id="examStats" class="mt-4 text-sm text-appmuted"></div>
+        <div id="examQuestion" class="mt-2 text-lg leading-relaxed"></div>
+        <div id="examOptions" class="mt-4 grid gap-2"></div>
+        <div id="examFeedback" class="mt-3 min-h-6 text-sm"></div>
 
-        <div class="toolbar">
-          <button id="examNextBtn" type="button" disabled>Далее</button>
+        <div class="mt-4 flex gap-2">
+          <button id="examNextBtn" class="action-btn" type="button" disabled>Далее</button>
         </div>
       </section>
     </main>
 
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+    </script>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

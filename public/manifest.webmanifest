@@ -1,0 +1,19 @@
+{
+  "name": "Охотничий минимум — официальный тренажер",
+  "short_name": "Охотминимум",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B1220",
+  "theme_color": "#0B1220",
+  "lang": "ru",
+  "description": "Официальный тренажер по вопросам охотминимума.",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

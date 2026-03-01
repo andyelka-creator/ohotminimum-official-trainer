@@ -71,8 +71,14 @@ const examState = {
 };
 
 function renderNotReady() {
-  statusEl.className = "status not-ready";
+  statusEl.className = "rounded-xl border border-appdanger bg-apppanel p-4 text-sm font-semibold text-appdanger";
   statusEl.textContent = "SYSTEM NOT READY";
+}
+
+function tabState(button, active) {
+  button.className = active
+    ? "tab-btn active"
+    : "tab-btn";
 }
 
 function setActiveTab(tab) {
@@ -80,9 +86,9 @@ function setActiveTab(tab) {
   const rulesActive = tab === "rules";
   const examActive = tab === "exam";
 
-  tabTrainerBtn.classList.toggle("active", trainerActive);
-  tabRulesBtn.classList.toggle("active", rulesActive);
-  tabExamBtn.classList.toggle("active", examActive);
+  tabState(tabTrainerBtn, trainerActive);
+  tabState(tabRulesBtn, rulesActive);
+  tabState(tabExamBtn, examActive);
 
   trainerEl.classList.toggle("hidden", !trainerActive);
   rulesEl.classList.toggle("hidden", !rulesActive);
@@ -103,8 +109,10 @@ function renderQuestion() {
 
   q.answers.forEach((answer, i) => {
     const li = document.createElement("li");
+    li.className =
+      "rounded-lg border px-3 py-2 text-sm leading-relaxed " +
+      (i === q.correctIndex ? "border-appaccent bg-emerald-900/20" : "border-slate-700 bg-slate-900/30");
     li.textContent = answer;
-    if (i === q.correctIndex) li.classList.add("correct");
     answersEl.appendChild(li);
   });
 
@@ -132,32 +140,33 @@ function buildRuleGroups() {
     if (matched.length === 0) continue;
 
     const card = document.createElement("article");
-    card.className = "rule-group";
+    card.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-3";
 
     const title = document.createElement("h3");
+    title.className = "text-base font-semibold";
     title.textContent = group.title;
 
     const meta = document.createElement("p");
-    meta.className = "rule-group-meta";
+    meta.className = "mt-1 text-xs text-appmuted";
     meta.textContent = `${group.description} • ${matched.length} вопросов`;
 
     const list = document.createElement("div");
-    list.className = "item-list";
+    list.className = "mt-3 grid gap-2";
 
     matched.forEach((q) => {
       const row = document.createElement("div");
-      row.className = "item-row";
+      row.className = "rounded-lg border border-slate-700 bg-slate-950/40 p-3";
 
       const itemTitle = document.createElement("p");
-      itemTitle.className = "item-title";
+      itemTitle.className = "text-sm";
       itemTitle.textContent = q.answers[q.correctIndex];
 
       const itemMeta = document.createElement("p");
-      itemMeta.className = "item-meta";
+      itemMeta.className = "mt-1 text-xs text-appmuted";
       itemMeta.textContent = `Вопрос #${q.id}`;
 
       const actions = document.createElement("div");
-      actions.className = "item-actions";
+      actions.className = "mt-2";
 
       const openBtn = document.createElement("button");
       openBtn.type = "button";
@@ -197,24 +206,25 @@ function buildDateMatrix() {
 
   dateQuestions.forEach((q) => {
     const row = document.createElement("article");
-    row.className = "date-row";
+    row.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-3";
 
     const head = document.createElement("div");
-    head.className = "date-row-head";
+    head.className = "flex flex-wrap items-center justify-between gap-2";
 
     const title = document.createElement("strong");
+    title.className = "text-sm font-semibold";
     title.textContent = q.text;
 
     const id = document.createElement("span");
-    id.className = "date-row-id";
+    id.className = "text-xs text-appmuted";
     id.textContent = `#${q.id}`;
 
     const period = document.createElement("p");
-    period.className = "date-row-period";
+    period.className = "mt-2 text-sm";
     period.textContent = extractPeriodText(q.answers[q.correctIndex]);
 
     const actions = document.createElement("div");
-    actions.className = "item-actions";
+    actions.className = "mt-2";
 
     const openBtn = document.createElement("button");
     openBtn.type = "button";
@@ -331,8 +341,7 @@ function renderExamStats() {
 
 function setFeedback(text, type = "") {
   examFeedbackEl.textContent = text;
-  examFeedbackEl.classList.remove("good", "bad");
-  if (type) examFeedbackEl.classList.add(type);
+  examFeedbackEl.className = `mt-3 min-h-6 text-sm ${type === "good" ? "text-appaccent" : type === "bad" ? "text-appdanger" : ""}`;
 }
 
 function renderExam() {
@@ -421,7 +430,7 @@ async function bootstrap() {
     }
 
     questions = payload.questions;
-    statusEl.className = "status ready";
+    statusEl.className = "rounded-xl border border-appaccent bg-apppanel p-4 text-sm";
     statusEl.textContent = `READY • HASH ${payload.hash} • ${questions.length} вопросов`;
 
     tabsEl.classList.remove("hidden");
