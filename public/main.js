@@ -110,6 +110,8 @@ const themeDrillState = {
   streakById: new Map(),
   currentQuestionId: null,
   answered: false,
+  autoNextTimeoutId: null,
+  autoNextIntervalId: null,
 };
 
 function answerPrefix(index) {
@@ -215,12 +217,24 @@ function setThemeDrillFeedback(text, type = "") {
   themeDrillFeedbackEl.className = `mt-2 min-h-6 text-sm ${type === "good" ? "text-appaccent" : type === "bad" ? "text-appdanger" : ""}`;
 }
 
+function clearThemeDrillTimers() {
+  if (themeDrillState.autoNextTimeoutId) {
+    clearTimeout(themeDrillState.autoNextTimeoutId);
+    themeDrillState.autoNextTimeoutId = null;
+  }
+  if (themeDrillState.autoNextIntervalId) {
+    clearInterval(themeDrillState.autoNextIntervalId);
+    themeDrillState.autoNextIntervalId = null;
+  }
+}
+
 function randomItem(items) {
   if (!items.length) return null;
   return items[Math.floor(Math.random() * items.length)];
 }
 
 function startThemeDrill() {
+  clearThemeDrillTimers();
   const themeId = themeTrainerSelectEl.value;
   const sourceThemes = rulesThemes.length > 0 ? rulesThemes : buildRulesThemes();
   const theme = sourceThemes.find((t) => t.id === themeId);
@@ -236,6 +250,8 @@ function startThemeDrill() {
   themeDrillState.streakById = new Map(themeDrillState.questionIds.map((id) => [id, 0]));
   themeDrillState.currentQuestionId = null;
   themeDrillState.answered = false;
+  themeDrillState.autoNextTimeoutId = null;
+  themeDrillState.autoNextIntervalId = null;
   setThemeDrillFeedback("");
 
   nextThemeDrillQuestion();
@@ -260,6 +276,7 @@ function renderThemeDrillCurrentQuestion() {
   renderThemeDrillStats();
   themeDrillOptionsEl.innerHTML = "";
   themeDrillNextBtn.disabled = true;
+  themeDrillNextBtn.textContent = "Следующий вопрос";
 
   if (!themeDrillState.active) {
     themeDrillQuestionEl.textContent = "Выберите тему и нажмите «Начать тренировку».";
@@ -311,10 +328,27 @@ function submitThemeDrillAnswer(selectedIndex) {
 
   renderThemeDrillStats();
   themeDrillNextBtn.disabled = false;
+  let remaining = 3;
+  themeDrillNextBtn.textContent = `Следующий вопрос (${remaining})`;
+  themeDrillState.autoNextIntervalId = setInterval(() => {
+    remaining -= 1;
+    if (remaining > 0) {
+      themeDrillNextBtn.textContent = `Следующий вопрос (${remaining})`;
+      return;
+    }
+    clearInterval(themeDrillState.autoNextIntervalId);
+    themeDrillState.autoNextIntervalId = null;
+  }, 1000);
+
+  themeDrillState.autoNextTimeoutId = setTimeout(() => {
+    themeDrillState.autoNextTimeoutId = null;
+    nextThemeDrillQuestion();
+  }, 3000);
 }
 
 function nextThemeDrillQuestion() {
   if (!themeDrillState.active) return;
+  clearThemeDrillTimers();
 
   const pending = themeDrillPendingIds();
   if (pending.length === 0) {
