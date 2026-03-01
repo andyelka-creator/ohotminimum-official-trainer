@@ -590,6 +590,15 @@ function dataUrl(name) {
   return new URL(`./data/${name}`, window.location.href).toString();
 }
 
+async function fetchStaticPair(cacheBust = "") {
+  const suffix = cacheBust ? `?v=${encodeURIComponent(cacheBust)}` : "";
+  const [bankResp, hashResp] = await Promise.all([
+    fetch(`${dataUrl("official_bank.json")}${suffix}`, { cache: "no-store" }),
+    fetch(`${dataUrl("official_bank.hash")}${suffix}`, { cache: "no-store" }),
+  ]);
+  return { bankResp, hashResp };
+}
+
 async function loadFromApi() {
   const status = await fetch("api/status");
   if (!status.ok) throw new Error("API status not ready");
@@ -609,26 +618,36 @@ async function loadFromApi() {
 }
 
 async function loadFromStaticFiles() {
-  const [bankResp, hashResp] = await Promise.all([fetch(dataUrl("official_bank.json")), fetch(dataUrl("official_bank.hash"))]);
+  const attempts = ["", String(Date.now())];
+  let lastError = new Error("Static official files missing");
 
-  if (!bankResp.ok || !hashResp.ok) {
-    throw new Error("Static official files missing");
+  for (const bust of attempts) {
+    try {
+      const { bankResp, hashResp } = await fetchStaticPair(bust);
+      if (!bankResp.ok || !hashResp.ok) {
+        throw new Error("Static official files missing");
+      }
+
+      const rawBank = await bankResp.text();
+      const expectedHash = (await hashResp.text()).trim();
+      const actualHash = await sha256Hex(rawBank);
+
+      if (!expectedHash || expectedHash !== actualHash) {
+        throw new Error("Static hash mismatch");
+      }
+
+      const parsedBank = JSON.parse(rawBank);
+      if (!validateBank(parsedBank)) {
+        throw new Error("Static bank schema validation failed");
+      }
+
+      return { questions: parsedBank, hash: expectedHash };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
   }
 
-  const rawBank = await bankResp.text();
-  const expectedHash = (await hashResp.text()).trim();
-  const actualHash = await sha256Hex(rawBank);
-
-  if (!expectedHash || expectedHash !== actualHash) {
-    throw new Error("Static hash mismatch");
-  }
-
-  const parsedBank = JSON.parse(rawBank);
-  if (!validateBank(parsedBank)) {
-    throw new Error("Static bank schema validation failed");
-  }
-
-  return { questions: parsedBank, hash: expectedHash };
+  throw lastError;
 }
 
 function shuffled(items) {
