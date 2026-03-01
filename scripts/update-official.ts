@@ -3,6 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { spawnSync } from "node:child_process";
 import pdf from "pdf-parse";
 import { z } from "zod";
 import { OfficialBankSchema, type OfficialBank, type OfficialQuestion } from "../src/schema.js";
@@ -152,6 +153,9 @@ async function fetchWithChecks(url: string, timeoutMs: number): Promise<Buffer> 
     if (bytes.length !== expectedBytes) {
       throw new Error(`Partial download detected: ${bytes.length}/${expectedBytes}`);
     }
+    if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+      throw new Error("Downloaded file is not a valid PDF signature.");
+    }
 
     return bytes;
   } finally {
@@ -173,10 +177,33 @@ function verifyHttpResponse(resp: Response): void {
 async function extractText(documentPath: string): Promise<string> {
   const file = readFileSync(documentPath);
   const extracted = await pdf(file);
-  if (!extracted.text?.trim()) {
-    throw new Error("No text extracted from PDF.");
+  if (extracted.text?.trim()) {
+    return extracted.text;
   }
-  return extracted.text;
+
+  const cliText = extractTextWithPdftotext(documentPath);
+  if (cliText.trim()) {
+    return cliText;
+  }
+
+  throw new Error("No text extracted from PDF.");
+}
+
+function extractTextWithPdftotext(documentPath: string): string {
+  const which = spawnSync("which", ["pdftotext"], { encoding: "utf8" });
+  if (which.status !== 0) {
+    return "";
+  }
+
+  const result = spawnSync("pdftotext", ["-layout", documentPath, "-"], {
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (result.status !== 0) {
+    return "";
+  }
+
+  return result.stdout || "";
 }
 
 function normalizeText(input: string): string {
