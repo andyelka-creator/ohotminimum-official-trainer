@@ -1,16 +1,82 @@
 const statusEl = document.getElementById("status");
+const tabsEl = document.getElementById("tabs");
+const tabTrainerBtn = document.getElementById("tabTrainer");
+const tabMatrixBtn = document.getElementById("tabMatrix");
+
 const trainerEl = document.getElementById("trainer");
 const questionTextEl = document.getElementById("questionText");
 const answersEl = document.getElementById("answers");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 
+const matrixEl = document.getElementById("matrix");
+const matrixGridEl = document.getElementById("matrixGrid");
+
 let questions = [];
 let index = 0;
+
+const RULE_MATRIX = [
+  {
+    key: "prohibited-actions",
+    title: "Запреты при осуществлении охоты",
+    description: "Единая запретительная норма в разных практических кейсах.",
+    matcher: (q) => /^При осуществлении охоты запрещается/i.test(q.text),
+  },
+  {
+    key: "adult-males-season",
+    title: "Сроки охоты на взрослых самцов",
+    description: "Одна норма сроков, но разные виды животных.",
+    matcher: (q) => /Срок охоты на взрослых самцов/i.test(q.text),
+  },
+  {
+    key: "when-hunt-time",
+    title: "Сроки по половозрастным группам",
+    description: "Вариации вопроса «в какие сроки охоты осуществляется...».",
+    matcher: (q) => /^В какие сроки охоты осуществляется/i.test(q.text),
+  },
+  {
+    key: "ungulates-purpose",
+    title: "Охота на копытных по целям",
+    description: "Одна рамка регулирования для разных целей охоты.",
+    matcher: (q) => /^Охота на копытных животных в целях/i.test(q.text),
+  },
+  {
+    key: "min-season-duration",
+    title: "Минимальная продолжительность сезона",
+    description: "Одинаковая логика минимального срока по разным видам.",
+    matcher: (q) => /^Минимальная продолжительность сезона охоты/i.test(q.text),
+  },
+  {
+    key: "collective-hunt-docs",
+    title: "Коллективная охота: документы и состав",
+    description: "Требования к составу участников и оформлению.",
+    matcher: (q) => /^При осуществлении коллективной охоты/i.test(q.text),
+  },
+  {
+    key: "bear-hunting-requirements",
+    title: "Охота на медведей: специальные требования",
+    description: "Отдельные обязательные условия именно для медведя.",
+    matcher: (q) => /^При осуществлении охоты на медведей/i.test(q.text),
+  },
+  {
+    key: "protected-zones",
+    title: "Зоны охраны охотничьих ресурсов",
+    description: "Режим ограничений и полномочий в охранных зонах.",
+    matcher: (q) => /^В зонах охраны охотничьих ресурсов/i.test(q.text),
+  },
+];
 
 function renderNotReady() {
   statusEl.className = "status not-ready";
   statusEl.textContent = "SYSTEM NOT READY";
+}
+
+function setActiveTab(tab) {
+  const trainerActive = tab === "trainer";
+  tabTrainerBtn.classList.toggle("active", trainerActive);
+  tabMatrixBtn.classList.toggle("active", !trainerActive);
+  trainerEl.classList.toggle("hidden", !trainerActive);
+  matrixEl.classList.toggle("hidden", trainerActive);
 }
 
 function renderQuestion() {
@@ -27,6 +93,52 @@ function renderQuestion() {
 
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === questions.length - 1;
+}
+
+function openQuestionById(id) {
+  const nextIndex = questions.findIndex((q) => q.id === id);
+  if (nextIndex < 0) return;
+  index = nextIndex;
+  renderQuestion();
+  setActiveTab("trainer");
+}
+
+function buildRuleMatrix() {
+  matrixGridEl.innerHTML = "";
+
+  for (const rule of RULE_MATRIX) {
+    const matched = questions.filter((q) => rule.matcher(q));
+    if (matched.length === 0) continue;
+
+    const card = document.createElement("article");
+    card.className = "rule-card";
+
+    const title = document.createElement("h3");
+    title.className = "rule-title";
+    title.textContent = rule.title;
+
+    const meta = document.createElement("p");
+    meta.className = "rule-meta";
+    meta.textContent = `${rule.description} • ${matched.length} вопросов`;
+
+    const links = document.createElement("div");
+    links.className = "rule-links";
+
+    matched
+      .sort((a, b) => a.id - b.id)
+      .forEach((q) => {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "rule-link";
+        link.textContent = `#${q.id}`;
+        link.title = q.text;
+        link.addEventListener("click", () => openQuestionById(q.id));
+        links.appendChild(link);
+      });
+
+    card.append(title, meta, links);
+    matrixGridEl.appendChild(card);
+  }
 }
 
 function validateBank(bank) {
@@ -79,10 +191,7 @@ async function loadFromApi() {
 }
 
 async function loadFromStaticFiles() {
-  const [bankResp, hashResp] = await Promise.all([
-    fetch(dataUrl("official_bank.json")),
-    fetch(dataUrl("official_bank.hash")),
-  ]);
+  const [bankResp, hashResp] = await Promise.all([fetch(dataUrl("official_bank.json")), fetch(dataUrl("official_bank.hash"))]);
 
   if (!bankResp.ok || !hashResp.ok) {
     throw new Error("Static official files missing");
@@ -117,7 +226,13 @@ async function bootstrap() {
     questions = payload.questions;
     statusEl.className = "status ready";
     statusEl.textContent = `READY • HASH ${payload.hash} • ${questions.length} вопросов`;
+
+    tabsEl.classList.remove("hidden");
     trainerEl.classList.remove("hidden");
+    matrixEl.classList.remove("hidden");
+
+    buildRuleMatrix();
+    setActiveTab("trainer");
     renderQuestion();
   } catch {
     renderNotReady();
@@ -137,5 +252,8 @@ nextBtn.addEventListener("click", () => {
     renderQuestion();
   }
 });
+
+tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
+tabMatrixBtn.addEventListener("click", () => setActiveTab("matrix"));
 
 bootstrap();

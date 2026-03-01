@@ -52,7 +52,28 @@ header p {
   border: 1px solid var(--accent);
 }
 
-.trainer {
+.tabs {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  border: 1px solid #3a4d63;
+  background: #1b2430;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.tab.active {
+  border-color: var(--accent);
+  background: #2a3b4f;
+}
+
+.trainer,
+.matrix {
   margin-top: 20px;
   padding: 20px;
   background: var(--panel);
@@ -92,7 +113,55 @@ header p {
   gap: 10px;
 }
 
-button {
+.matrix h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.matrix-subtitle {
+  margin-top: 0;
+  color: var(--muted);
+}
+
+.matrix-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.rule-card {
+  border: 1px solid #31445a;
+  border-radius: 10px;
+  padding: 12px;
+  background: #1b2532;
+}
+
+.rule-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rule-meta {
+  margin: 6px 0 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.rule-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rule-link {
+  border: 1px solid #466386;
+  background: #243447;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.toolbar button {
   border: 0;
   background: #2f4156;
   color: var(--text);
@@ -101,7 +170,7 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
+.toolbar button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

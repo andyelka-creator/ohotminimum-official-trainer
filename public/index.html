@@ -13,6 +13,12 @@
         <p>Официальный тренажер</p>
       </header>
       <section id="status" class="status">Loading...</section>
+
+      <nav id="tabs" class="tabs hidden" aria-label="Разделы">
+        <button id="tabTrainer" class="tab active" type="button">Тренажер</button>
+        <button id="tabMatrix" class="tab" type="button">Матрица правил</button>
+      </nav>
+
       <section id="trainer" class="trainer hidden">
         <div id="questionText" class="question"></div>
         <ol id="answers" class="answers"></ol>
@@ -20,6 +26,12 @@
           <button id="prevBtn" type="button">Назад</button>
           <button id="nextBtn" type="button">Далее</button>
         </div>
+      </section>
+
+      <section id="matrix" class="matrix hidden">
+        <h2>Матрица правил</h2>
+        <p class="matrix-subtitle">Сгруппировано по повторяющимся нормам. Нажмите на номер вопроса для перехода.</p>
+        <div id="matrixGrid" class="matrix-grid"></div>
       </section>
     </main>
     <script type="module" src="./main.js"></script>
