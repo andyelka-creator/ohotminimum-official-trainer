@@ -53,6 +53,7 @@
 
       <nav id="tabs" class="mt-4 hidden flex-wrap gap-2" aria-label="Разделы">
         <button id="tabTrainer" class="tab-btn active" type="button">Тренажер</button>
+        <button id="tabSafety" class="tab-btn" type="button">Безопасное обращение</button>
         <button id="tabRules" class="tab-btn" type="button">Правила и даты</button>
         <button id="tabExam" class="tab-btn" type="button">Экзамен</button>
         <button id="tabInsights" class="tab-btn" type="button">Занимательно</button>
@@ -107,6 +108,61 @@
             <div id="antiHeurMeta" class="mt-2 text-sm text-appmuted"></div>
             <div id="antiHeurList" class="mt-3 grid gap-2"></div>
           </div>
+        </div>
+      </section>
+
+      <section id="safety" class="panel hidden">
+        <h2 class="text-xl font-semibold">БЕЗОПАСНОЕ ОБРАЩЕНИЕ С ОРУЖИЕМ</h2>
+        <p class="mt-2 text-sm text-appmuted">Отдельный банк из 135 вопросов с пояснениями.</p>
+
+        <div id="safetyTabs" class="mt-3 h-scroll-tabs" aria-label="Раздел безопасности">
+          <button id="safetyModeTrainerBtn" class="tab-btn active" type="button">Тренажер</button>
+          <button id="safetyModeExamBtn" class="tab-btn" type="button">Экзамен</button>
+          <button id="safetyModeInsightsBtn" class="tab-btn" type="button">Занимательно</button>
+        </div>
+
+        <div id="safetyStatus" class="mt-3 text-sm text-appmuted"></div>
+
+        <div id="safetyTrainerPanel" class="mt-4">
+          <div id="safetyQuestionText" class="mb-4 text-base leading-relaxed sm:text-lg"></div>
+          <ol id="safetyAnswers" class="space-y-2"></ol>
+          <details id="safetyExplanationWrap" class="mt-3 rounded-lg border border-slate-700 bg-slate-900/30 p-3">
+            <summary class="cursor-pointer text-sm font-semibold">Пояснение</summary>
+            <p id="safetyExplanationText" class="mt-2 whitespace-pre-line text-sm text-appmuted"></p>
+          </details>
+          <div class="mt-4 flex gap-2 mobile-actions">
+            <button id="safetyPrevBtn" class="action-btn" type="button">Назад</button>
+            <button id="safetyNextBtn" class="action-btn" type="button">Далее</button>
+          </div>
+        </div>
+
+        <div id="safetyExamPanel" class="mt-4 hidden">
+          <div class="mt-1 flex flex-wrap items-center gap-2">
+            <label for="safetyExamOrder" class="text-sm text-appmuted">Порядок:</label>
+            <select id="safetyExamOrder" class="select-field">
+              <option value="sequential">По порядку</option>
+              <option value="random">Случайно (без повторов)</option>
+            </select>
+            <label for="safetyExamCount" class="text-sm text-appmuted">Вопросов:</label>
+            <select id="safetyExamCount" class="select-field">
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="135">135</option>
+            </select>
+            <button id="safetyRestartExamBtn" class="action-btn" type="button">Начать экзамен</button>
+          </div>
+          <div id="safetyExamStats" class="mt-3 text-sm text-appmuted"></div>
+          <div id="safetyExamQuestion" class="mt-3 text-base leading-relaxed sm:text-lg"></div>
+          <div id="safetyExamOptions" class="mt-3 grid gap-2"></div>
+          <div id="safetyExamFeedback" class="mt-2 min-h-6 text-sm"></div>
+          <div class="mt-3 flex gap-2 mobile-actions">
+            <button id="safetyExamNextBtn" class="action-btn" type="button" disabled>Далее</button>
+          </div>
+        </div>
+
+        <div id="safetyInsightsPanel" class="mt-4 hidden">
+          <div id="safetyInsightsSummary" class="grid gap-3"></div>
         </div>
       </section>
 

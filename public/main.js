@@ -2,6 +2,7 @@ const statusEl = document.getElementById("status");
 const tabsEl = document.getElementById("tabs");
 
 const tabTrainerBtn = document.getElementById("tabTrainer");
+const tabSafetyBtn = document.getElementById("tabSafety");
 const tabRulesBtn = document.getElementById("tabRules");
 const tabExamBtn = document.getElementById("tabExam");
 const tabInsightsBtn = document.getElementById("tabInsights");
@@ -29,6 +30,31 @@ const themeDrillFeedbackEl = document.getElementById("themeDrillFeedback");
 const themeDrillNextBtn = document.getElementById("themeDrillNextBtn");
 const antiHeurMetaEl = document.getElementById("antiHeurMeta");
 const antiHeurListEl = document.getElementById("antiHeurList");
+
+const safetyEl = document.getElementById("safety");
+const safetyTabsEl = document.getElementById("safetyTabs");
+const safetyModeTrainerBtn = document.getElementById("safetyModeTrainerBtn");
+const safetyModeExamBtn = document.getElementById("safetyModeExamBtn");
+const safetyModeInsightsBtn = document.getElementById("safetyModeInsightsBtn");
+const safetyStatusEl = document.getElementById("safetyStatus");
+const safetyTrainerPanelEl = document.getElementById("safetyTrainerPanel");
+const safetyExamPanelEl = document.getElementById("safetyExamPanel");
+const safetyInsightsPanelEl = document.getElementById("safetyInsightsPanel");
+const safetyQuestionTextEl = document.getElementById("safetyQuestionText");
+const safetyAnswersEl = document.getElementById("safetyAnswers");
+const safetyExplanationWrapEl = document.getElementById("safetyExplanationWrap");
+const safetyExplanationTextEl = document.getElementById("safetyExplanationText");
+const safetyPrevBtn = document.getElementById("safetyPrevBtn");
+const safetyNextBtn = document.getElementById("safetyNextBtn");
+const safetyExamOrderEl = document.getElementById("safetyExamOrder");
+const safetyExamCountEl = document.getElementById("safetyExamCount");
+const safetyRestartExamBtn = document.getElementById("safetyRestartExamBtn");
+const safetyExamStatsEl = document.getElementById("safetyExamStats");
+const safetyExamQuestionEl = document.getElementById("safetyExamQuestion");
+const safetyExamOptionsEl = document.getElementById("safetyExamOptions");
+const safetyExamFeedbackEl = document.getElementById("safetyExamFeedback");
+const safetyExamNextBtn = document.getElementById("safetyExamNextBtn");
+const safetyInsightsSummaryEl = document.getElementById("safetyInsightsSummary");
 
 const rulesEl = document.getElementById("rules");
 const rulesSwipeAreaEl = document.getElementById("rulesSwipeArea");
@@ -62,9 +88,12 @@ const insightsEl = document.getElementById("insights");
 const insightsSummaryEl = document.getElementById("insightsSummary");
 
 let questions = [];
+let booQuestions = [];
 let index = 0;
+let safetyIndex = 0;
 let rulesBuilt = false;
 let insightsBuilt = false;
+let safetyInsightsBuilt = false;
 let rulesThemes = [];
 let dateThemes = [];
 let activeRulesThemeId = "";
@@ -76,11 +105,22 @@ let trainerSwipeStartY = 0;
 let trainerSwipeIgnore = false;
 let antiHeuristicQuestions = [];
 let rulesMode = "rule";
+let safetyMode = "trainer";
 let rulesSwipeStartX = 0;
 let rulesSwipeStartY = 0;
 let rulesSwipeIgnore = false;
 const BUILD_SEEN_KEY = "ohotminimum_seen_build_id";
 let trainerReturnContext = null;
+
+const safetyExamState = {
+  orderMode: "sequential",
+  questionCount: 50,
+  queue: [],
+  position: 0,
+  correct: 0,
+  answered: false,
+  started: false,
+};
 
 const RULE_GROUPS = [
   {
@@ -204,16 +244,19 @@ function tabState(button, active) {
 
 function setActiveTab(tab) {
   const trainerActive = tab === "trainer";
+  const safetyActive = tab === "safety";
   const rulesActive = tab === "rules";
   const examActive = tab === "exam";
   const insightsActive = tab === "insights";
 
   tabState(tabTrainerBtn, trainerActive);
+  tabState(tabSafetyBtn, safetyActive);
   tabState(tabRulesBtn, rulesActive);
   tabState(tabExamBtn, examActive);
   tabState(tabInsightsBtn, insightsActive);
 
   trainerEl.classList.toggle("hidden", !trainerActive);
+  safetyEl.classList.toggle("hidden", !safetyActive);
   rulesEl.classList.toggle("hidden", !rulesActive);
   examEl.classList.toggle("hidden", !examActive);
   insightsEl.classList.toggle("hidden", !insightsActive);
@@ -226,6 +269,10 @@ function setActiveTab(tab) {
   if (insightsActive && !insightsBuilt) {
     buildInsights();
     insightsBuilt = true;
+  }
+  if (safetyActive && !safetyInsightsBuilt) {
+    buildSafetyInsights();
+    safetyInsightsBuilt = true;
   }
 
   if (!trainerActive) {
@@ -907,6 +954,26 @@ function validateBank(bank) {
   return true;
 }
 
+function validateBooBank(bank) {
+  if (!Array.isArray(bank) || bank.length !== 135) return false;
+
+  const ids = new Set();
+  for (const q of bank) {
+    if (!q || typeof q !== "object") return false;
+    if (!Number.isInteger(q.id) || q.id <= 0 || ids.has(q.id)) return false;
+    if (typeof q.text !== "string" || !q.text.trim()) return false;
+    if (!Array.isArray(q.answers) || q.answers.length !== 3) return false;
+    if (!Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex > 2) return false;
+    if (typeof q.explanation !== "string" || !q.explanation.trim()) return false;
+    for (const answer of q.answers) {
+      if (typeof answer !== "string" || !answer.trim()) return false;
+    }
+    ids.add(q.id);
+  }
+
+  return true;
+}
+
 async function sha256Hex(text) {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
@@ -973,6 +1040,36 @@ async function loadFromStaticFiles() {
       return { questions: parsedBank, hash: expectedHash };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError;
+}
+
+async function loadBooFromStaticFiles() {
+  const attempts = ["", String(Date.now())];
+  let lastError = new Error("Static boo files missing");
+
+  for (const bust of attempts) {
+    try {
+      const suffix = bust ? `?v=${encodeURIComponent(bust)}` : "";
+      const [bankResp, hashResp] = await Promise.all([
+        fetch(`${dataUrl("boo_bank.json")}${suffix}`, { cache: "no-store" }),
+        fetch(`${dataUrl("boo_bank.hash")}${suffix}`, { cache: "no-store" }),
+      ]);
+      if (!bankResp.ok || !hashResp.ok) throw new Error("Static boo files missing");
+
+      const rawBank = await bankResp.text();
+      const expectedHash = (await hashResp.text()).trim();
+      const actualHash = await sha256Hex(rawBank);
+      if (!expectedHash || expectedHash !== actualHash) throw new Error("Static boo hash mismatch");
+
+      const parsed = JSON.parse(rawBank);
+      if (!validateBooBank(parsed)) throw new Error("Static boo bank schema validation failed");
+
+      return parsed;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -1486,6 +1583,220 @@ function buildInsights() {
   insightsSummaryEl.appendChild(block);
 }
 
+function setSafetyStatus(text, type = "") {
+  safetyStatusEl.textContent = text;
+  safetyStatusEl.className = `mt-3 text-sm ${
+    type === "bad" ? "text-appdanger" : type === "good" ? "text-appaccent" : "text-appmuted"
+  }`;
+}
+
+function setSafetyMode(mode) {
+  safetyMode = mode === "exam" || mode === "insights" ? mode : "trainer";
+  safetyModeTrainerBtn.className = safetyMode === "trainer" ? "tab-btn active" : "tab-btn";
+  safetyModeExamBtn.className = safetyMode === "exam" ? "tab-btn active" : "tab-btn";
+  safetyModeInsightsBtn.className = safetyMode === "insights" ? "tab-btn active" : "tab-btn";
+  safetyTrainerPanelEl.classList.toggle("hidden", safetyMode !== "trainer");
+  safetyExamPanelEl.classList.toggle("hidden", safetyMode !== "exam");
+  safetyInsightsPanelEl.classList.toggle("hidden", safetyMode !== "insights");
+}
+
+function renderSafetyQuestion() {
+  if (!booQuestions.length) {
+    safetyQuestionTextEl.textContent = "Банк БОО не загружен.";
+    safetyAnswersEl.innerHTML = "";
+    safetyExplanationTextEl.textContent = "";
+    safetyPrevBtn.disabled = true;
+    safetyNextBtn.disabled = true;
+    return;
+  }
+  const q = booQuestions[safetyIndex];
+  if (!q) return;
+  safetyQuestionTextEl.textContent = `${q.id}. ${q.text}`;
+  safetyAnswersEl.innerHTML = "";
+  q.answers.forEach((answer, i) => {
+    const li = document.createElement("li");
+    li.className =
+      "rounded-lg border px-3 py-2 text-sm leading-relaxed " +
+      (i === q.correctIndex ? "border-appaccent bg-emerald-900/20" : "border-slate-700 bg-slate-900/30");
+    li.textContent = answer;
+    safetyAnswersEl.appendChild(li);
+  });
+  safetyExplanationTextEl.textContent = q.explanation;
+  safetyExplanationWrapEl.open = false;
+  safetyPrevBtn.disabled = safetyIndex === 0;
+  safetyNextBtn.disabled = safetyIndex === booQuestions.length - 1;
+}
+
+function shuffledBoo(items) {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function buildSafetyExamQueue(mode, targetCount) {
+  const indexes = booQuestions.map((_, i) => i);
+  const ordered = mode === "random" ? shuffledBoo(indexes) : indexes;
+  return ordered.slice(0, Math.min(targetCount, ordered.length));
+}
+
+function currentSafetyExamQuestion() {
+  const idx = safetyExamState.queue[safetyExamState.position];
+  return booQuestions[idx] || null;
+}
+
+function setSafetyExamFeedback(text, type = "") {
+  safetyExamFeedbackEl.textContent = text;
+  safetyExamFeedbackEl.className = `mt-2 min-h-6 text-sm ${type === "good" ? "text-appaccent" : type === "bad" ? "text-appdanger" : ""}`;
+}
+
+function renderSafetyExamStats() {
+  if (!safetyExamState.started) {
+    safetyExamStatsEl.textContent = "Экзамен не запущен.";
+    return;
+  }
+  const total = safetyExamState.queue.length;
+  const current = total ? Math.min(safetyExamState.position + 1, total) : 0;
+  const answeredCount = safetyExamState.position + (safetyExamState.answered ? 1 : 0);
+  const needed = passingScore(total);
+  safetyExamStatsEl.textContent = `Вопрос ${current} / ${total} • Отвечено: ${answeredCount} • Верных: ${safetyExamState.correct} • Для сдачи: ${needed}`;
+}
+
+function renderSafetyExamIdle() {
+  safetyExamState.queue = [];
+  safetyExamState.position = 0;
+  safetyExamState.correct = 0;
+  safetyExamState.answered = false;
+  safetyExamState.started = false;
+  safetyExamQuestionEl.textContent = "Выберите параметры и нажмите «Начать экзамен».";
+  safetyExamOptionsEl.innerHTML = "";
+  setSafetyExamFeedback("");
+  safetyExamNextBtn.disabled = true;
+  renderSafetyExamStats();
+}
+
+function renderSafetyExam() {
+  renderSafetyExamStats();
+  safetyExamOptionsEl.innerHTML = "";
+  safetyExamNextBtn.disabled = true;
+  setSafetyExamFeedback("");
+  safetyExamNextBtn.textContent = "Далее";
+
+  if (!safetyExamState.started) {
+    renderSafetyExamIdle();
+    return;
+  }
+
+  if (safetyExamState.position >= safetyExamState.queue.length) {
+    const total = safetyExamState.queue.length;
+    const needed = passingScore(total);
+    const passed = safetyExamState.correct >= needed;
+    safetyExamQuestionEl.textContent = `Экзамен завершен. Результат: ${safetyExamState.correct}/${total}. Статус: ${passed ? "СДАНО" : "НЕ СДАНО"}.`;
+    safetyExamOptionsEl.innerHTML = "";
+    safetyExamNextBtn.disabled = true;
+    setSafetyExamFeedback("");
+    return;
+  }
+
+  const q = currentSafetyExamQuestion();
+  if (!q) return;
+  safetyExamQuestionEl.textContent = `${q.id}. ${q.text}`;
+  q.answers.forEach((answer, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "exam-option";
+    btn.textContent = answer;
+    btn.disabled = safetyExamState.answered;
+    btn.addEventListener("click", () => submitSafetyExamAnswer(i));
+    safetyExamOptionsEl.appendChild(btn);
+  });
+}
+
+function startSafetyExam() {
+  if (!booQuestions.length) {
+    setSafetyStatus("Банк БОО недоступен: сначала выполните импорт.", "bad");
+    return;
+  }
+  safetyExamState.orderMode = safetyExamOrderEl.value;
+  safetyExamState.questionCount = Math.max(1, Math.min(135, Number(safetyExamCountEl.value) || 50));
+  safetyExamState.queue = buildSafetyExamQueue(safetyExamState.orderMode, safetyExamState.questionCount);
+  safetyExamState.position = 0;
+  safetyExamState.correct = 0;
+  safetyExamState.answered = false;
+  safetyExamState.started = true;
+  renderSafetyExam();
+}
+
+function submitSafetyExamAnswer(selectedIndex) {
+  if (!safetyExamState.started || safetyExamState.answered) return;
+  const q = currentSafetyExamQuestion();
+  if (!q) return;
+  safetyExamState.answered = true;
+
+  const buttons = [...safetyExamOptionsEl.querySelectorAll(".exam-option")];
+  buttons.forEach((btn) => (btn.disabled = true));
+
+  if (selectedIndex === q.correctIndex) {
+    safetyExamState.correct += 1;
+    if (buttons[selectedIndex]) buttons[selectedIndex].classList.add("correct");
+    setSafetyExamFeedback("Верно.", "good");
+  } else {
+    if (buttons[selectedIndex]) buttons[selectedIndex].classList.add("incorrect");
+    if (buttons[q.correctIndex]) buttons[q.correctIndex].classList.add("correct");
+    setSafetyExamFeedback("Неверно.", "bad");
+  }
+  safetyExamNextBtn.disabled = false;
+  renderSafetyExamStats();
+}
+
+function nextSafetyExamQuestion() {
+  if (!safetyExamState.started || !safetyExamState.answered) return;
+  safetyExamState.position += 1;
+  safetyExamState.answered = false;
+  renderSafetyExam();
+}
+
+function buildSafetyInsights() {
+  safetyInsightsSummaryEl.innerHTML = "";
+  if (!booQuestions.length) return;
+  const total = booQuestions.length;
+  const byPosition = [0, 0, 0];
+  const byCategory = new Map();
+  let strictLongest = 0;
+  let longestOrTie = 0;
+  for (const q of booQuestions) {
+    byPosition[q.correctIndex] += 1;
+    byCategory.set(q.category, (byCategory.get(q.category) || 0) + 1);
+    const lengths = q.answers.map((a) => a.replace(/\s+/g, " ").trim().length);
+    const maxLen = Math.max(...lengths);
+    const isLongest = lengths[q.correctIndex] === maxLen;
+    if (isLongest) {
+      longestOrTie += 1;
+      if (lengths.filter((x) => x === maxLen).length === 1) strictLongest += 1;
+    }
+  }
+  const categoryText = [...byCategory.entries()]
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0]), "ru"))
+    .map(([name, count]) => `${name}: ${count}`)
+    .join(" • ");
+
+  const block = document.createElement("article");
+  block.className = "rounded-xl border border-slate-700 bg-slate-900/30 p-4";
+  block.innerHTML = `
+    <p class="text-sm">По банку БОО (${total} вопросов):</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+      <li>категории: <strong>${categoryText}</strong></li>
+      <li>правильный строго самый длинный: <strong>${strictLongest} / ${total}</strong> (≈ ${pct(strictLongest, total)}%)</li>
+      <li>правильный самый длинный или в ничьей: <strong>${longestOrTie} / ${total}</strong> (≈ ${pct(longestOrTie, total)}%)</li>
+      <li>позиции правильного: 1 — <strong>${byPosition[0]}</strong>, 2 — <strong>${byPosition[1]}</strong>, 3 — <strong>${byPosition[2]}</strong></li>
+      <li>пояснения импортированы: <strong>${booQuestions.filter((q) => q.explanation?.trim()).length} / ${total}</strong></li>
+    </ul>
+  `;
+  safetyInsightsSummaryEl.appendChild(block);
+}
+
 async function bootstrap() {
   try {
     let payload;
@@ -1497,11 +1808,17 @@ async function bootstrap() {
     }
 
     questions = payload.questions;
+    try {
+      booQuestions = await loadBooFromStaticFiles();
+    } catch {
+      booQuestions = [];
+    }
     statusEl.classList.add("hidden");
     statusEl.textContent = "";
 
     tabsEl.classList.remove("hidden");
     trainerEl.classList.remove("hidden");
+    safetyEl.classList.remove("hidden");
     rulesEl.classList.remove("hidden");
     examEl.classList.remove("hidden");
     insightsEl.classList.remove("hidden");
@@ -1509,6 +1826,7 @@ async function bootstrap() {
     // We keep first paint fast and postpone heavy lists until the corresponding tab is opened.
     rulesBuilt = false;
     insightsBuilt = false;
+    safetyInsightsBuilt = false;
     const builtThemes = buildRulesThemes();
     rulesThemes = builtThemes.ruleThemes;
     dateThemes = builtThemes.dateThemes;
@@ -1516,10 +1834,19 @@ async function bootstrap() {
     refreshThemeDrillThemes();
     renderAntiHeuristicPanel();
     renderQuestion();
+    renderSafetyQuestion();
     renderExamIdle();
+    renderSafetyExamIdle();
     renderThemeDrillStats();
     renderThemeDrillCurrentQuestion();
     setTrainerMode("classic");
+    setSafetyMode("trainer");
+    setSafetyStatus(
+      booQuestions.length
+        ? `Банк загружен: ${booQuestions.length} вопросов с пояснениями.`
+        : "Банк не загружен. Запустите: npm run update:boo",
+      booQuestions.length ? "good" : "bad"
+    );
     setActiveTab("trainer");
   } catch {
     renderNotReady();
@@ -1555,9 +1882,28 @@ rulesModeRuleBtn.addEventListener("click", () => setRulesMode("rule"));
 rulesModeDateBtn.addEventListener("click", () => setRulesMode("date"));
 
 tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
+tabSafetyBtn.addEventListener("click", () => setActiveTab("safety"));
 tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
 tabExamBtn.addEventListener("click", () => setActiveTab("exam"));
 tabInsightsBtn.addEventListener("click", () => setActiveTab("insights"));
+
+safetyModeTrainerBtn.addEventListener("click", () => setSafetyMode("trainer"));
+safetyModeExamBtn.addEventListener("click", () => setSafetyMode("exam"));
+safetyModeInsightsBtn.addEventListener("click", () => setSafetyMode("insights"));
+safetyPrevBtn.addEventListener("click", () => {
+  if (safetyIndex > 0) {
+    safetyIndex -= 1;
+    renderSafetyQuestion();
+  }
+});
+safetyNextBtn.addEventListener("click", () => {
+  if (safetyIndex < booQuestions.length - 1) {
+    safetyIndex += 1;
+    renderSafetyQuestion();
+  }
+});
+safetyRestartExamBtn.addEventListener("click", () => startSafetyExam());
+safetyExamNextBtn.addEventListener("click", () => nextSafetyExamQuestion());
 
 restartExamBtn.addEventListener("click", () => startExam());
 examNextBtn.addEventListener("click", () => nextExamQuestion());

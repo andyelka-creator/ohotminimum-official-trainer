@@ -1,0 +1,13 @@
+{
+  "bundleUrls": [
+    "https://ohotminimum.ru/assets/index-B2q7tvgI.js"
+  ],
+  "explanationsUrls": [
+    "https://cdn.ohotminimum.ru/explanations_boo.json"
+  ],
+  "localBundlePath": ".tmp/ohotminimum.bundle.js",
+  "localExplanationsPath": ".tmp/explanations_boo.json",
+  "expectedQuestionCount": 135,
+  "timeoutMs": 20000,
+  "maxRetries": 3
+}

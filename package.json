@@ -12,7 +12,8 @@
     "start": "node dist/src/server.js",
     "dev": "tsx src/server.ts",
     "update:official": "tsx scripts/update-official.ts",
-    "verify:integrity": "tsx scripts/verify-integrity.ts"
+    "verify:integrity": "tsx scripts/verify-integrity.ts",
+    "update:boo": "tsx scripts/update-boo.ts"
   },
   "dependencies": {
     "express": "^4.21.2",

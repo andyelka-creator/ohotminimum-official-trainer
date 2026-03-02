@@ -14,7 +14,13 @@ mkdirSync(outDir, { recursive: true });
 cpSync(publicDir, outDir, { recursive: true });
 mkdirSync(pagesDataDir, { recursive: true });
 
-for (const file of ["official_bank.json", "official_bank.hash", "official_versions.json"]) {
+for (const file of [
+  "official_bank.json",
+  "official_bank.hash",
+  "official_versions.json",
+  "boo_bank.json",
+  "boo_bank.hash",
+]) {
   const src = path.join(dataDir, file);
   if (existsSync(src)) {
     cpSync(src, path.join(pagesDataDir, file));
