@@ -1,11 +1,13 @@
 const statusEl = document.getElementById("status");
 const tabsEl = document.getElementById("tabs");
+const modeTabsEl = document.getElementById("modeTabs");
 
-const tabTrainerBtn = document.getElementById("tabTrainer");
-const tabSafetyBtn = document.getElementById("tabSafety");
-const tabRulesBtn = document.getElementById("tabRules");
-const tabExamBtn = document.getElementById("tabExam");
-const tabInsightsBtn = document.getElementById("tabInsights");
+const bankHuntBtn = document.getElementById("bankHuntBtn");
+const bankSafetyBtn = document.getElementById("bankSafetyBtn");
+const modeTrainerBtn = document.getElementById("modeTrainerBtn");
+const modeExamBtn = document.getElementById("modeExamBtn");
+const modeMaterialsBtn = document.getElementById("modeMaterialsBtn");
+const modeInsightsBtn = document.getElementById("modeInsightsBtn");
 const buildUpdateBadgeEl = document.getElementById("buildUpdateBadge");
 
 const trainerEl = document.getElementById("trainer");
@@ -32,14 +34,12 @@ const antiHeurMetaEl = document.getElementById("antiHeurMeta");
 const antiHeurListEl = document.getElementById("antiHeurList");
 
 const safetyEl = document.getElementById("safety");
-const safetyTabsEl = document.getElementById("safetyTabs");
-const safetyModeTrainerBtn = document.getElementById("safetyModeTrainerBtn");
-const safetyModeExamBtn = document.getElementById("safetyModeExamBtn");
-const safetyModeInsightsBtn = document.getElementById("safetyModeInsightsBtn");
 const safetyStatusEl = document.getElementById("safetyStatus");
 const safetyTrainerPanelEl = document.getElementById("safetyTrainerPanel");
 const safetyExamPanelEl = document.getElementById("safetyExamPanel");
 const safetyInsightsPanelEl = document.getElementById("safetyInsightsPanel");
+const safetyMaterialsPanelEl = document.getElementById("safetyMaterialsPanel");
+const safetyMaterialsListEl = document.getElementById("safetyMaterialsList");
 const safetyQuestionTextEl = document.getElementById("safetyQuestionText");
 const safetyAnswersEl = document.getElementById("safetyAnswers");
 const safetyExplanationWrapEl = document.getElementById("safetyExplanationWrap");
@@ -106,6 +106,8 @@ let trainerSwipeIgnore = false;
 let antiHeuristicQuestions = [];
 let rulesMode = "rule";
 let safetyMode = "trainer";
+let activeBank = "hunt";
+let activeMode = "trainer";
 let rulesSwipeStartX = 0;
 let rulesSwipeStartY = 0;
 let rulesSwipeIgnore = false;
@@ -237,47 +239,106 @@ async function checkBuildUpdateBadge() {
 }
 
 function tabState(button, active) {
+  if (!button) return;
   button.className = active
     ? "tab-btn active"
     : "tab-btn";
 }
 
-function setActiveTab(tab) {
-  const trainerActive = tab === "trainer";
-  const safetyActive = tab === "safety";
-  const rulesActive = tab === "rules";
-  const examActive = tab === "exam";
-  const insightsActive = tab === "insights";
+function applyLayout() {
+  tabState(bankHuntBtn, activeBank === "hunt");
+  tabState(bankSafetyBtn, activeBank === "safety");
+  tabState(modeTrainerBtn, activeMode === "trainer");
+  tabState(modeExamBtn, activeMode === "exam");
+  tabState(modeMaterialsBtn, activeMode === "materials");
+  tabState(modeInsightsBtn, activeMode === "insights");
 
-  tabState(tabTrainerBtn, trainerActive);
-  tabState(tabSafetyBtn, safetyActive);
-  tabState(tabRulesBtn, rulesActive);
-  tabState(tabExamBtn, examActive);
-  tabState(tabInsightsBtn, insightsActive);
+  // Dynamic wording to keep mode names intuitive in each bank.
+  if (modeMaterialsBtn) {
+    modeMaterialsBtn.textContent = activeBank === "hunt" ? "Правила и даты" : "Пояснения и нормы";
+  }
 
-  trainerEl.classList.toggle("hidden", !trainerActive);
-  safetyEl.classList.toggle("hidden", !safetyActive);
-  rulesEl.classList.toggle("hidden", !rulesActive);
-  examEl.classList.toggle("hidden", !examActive);
-  insightsEl.classList.toggle("hidden", !insightsActive);
+  trainerEl.classList.add("hidden");
+  safetyEl.classList.add("hidden");
+  rulesEl.classList.add("hidden");
+  examEl.classList.add("hidden");
+  insightsEl.classList.add("hidden");
 
-  // Lazy-render heavy sections only when the user opens them on mobile/web.
-  if (rulesActive && !rulesBuilt) {
+  if (activeBank === "hunt") {
+    if (activeMode === "trainer") trainerEl.classList.remove("hidden");
+    if (activeMode === "exam") examEl.classList.remove("hidden");
+    if (activeMode === "materials") rulesEl.classList.remove("hidden");
+    if (activeMode === "insights") insightsEl.classList.remove("hidden");
+  } else {
+    safetyEl.classList.remove("hidden");
+    if (activeMode === "trainer") setSafetyMode("trainer");
+    if (activeMode === "exam") setSafetyMode("exam");
+    if (activeMode === "materials") setSafetyMode("materials");
+    if (activeMode === "insights") setSafetyMode("insights");
+  }
+
+  // Lazy-render heavy sections only when corresponding mode is opened.
+  if (activeBank === "hunt" && activeMode === "materials" && !rulesBuilt) {
     renderRulesThemes();
     rulesBuilt = true;
   }
-  if (insightsActive && !insightsBuilt) {
+  if (activeBank === "hunt" && activeMode === "insights" && !insightsBuilt) {
     buildInsights();
     insightsBuilt = true;
   }
-  if (safetyActive && !safetyInsightsBuilt) {
+  if (activeBank === "safety" && activeMode === "insights" && !safetyInsightsBuilt) {
     buildSafetyInsights();
     safetyInsightsBuilt = true;
   }
 
-  if (!trainerActive) {
+  if (!(activeBank === "hunt" && activeMode === "trainer")) {
     updateTrainerReturnControls();
   }
+}
+
+function setActiveBank(bank) {
+  activeBank = bank === "safety" ? "safety" : "hunt";
+  applyLayout();
+}
+
+function setActiveMode(mode) {
+  if (mode === "exam" || mode === "materials" || mode === "insights") {
+    activeMode = mode;
+  } else {
+    activeMode = "trainer";
+  }
+  applyLayout();
+}
+
+function setActiveTab(tab) {
+  // Backward-compatible routing from old tab names.
+  if (tab === "safety") {
+    activeBank = "safety";
+    activeMode = "trainer";
+    applyLayout();
+    return;
+  }
+  if (tab === "rules") {
+    activeBank = "hunt";
+    activeMode = "materials";
+    applyLayout();
+    return;
+  }
+  if (tab === "exam") {
+    activeBank = "hunt";
+    activeMode = "exam";
+    applyLayout();
+    return;
+  }
+  if (tab === "insights") {
+    activeBank = "hunt";
+    activeMode = "insights";
+    applyLayout();
+    return;
+  }
+  activeBank = "hunt";
+  activeMode = "trainer";
+  applyLayout();
 }
 
 function setTrainerMode(mode) {
@@ -1591,13 +1652,18 @@ function setSafetyStatus(text, type = "") {
 }
 
 function setSafetyMode(mode) {
-  safetyMode = mode === "exam" || mode === "insights" ? mode : "trainer";
-  safetyModeTrainerBtn.className = safetyMode === "trainer" ? "tab-btn active" : "tab-btn";
-  safetyModeExamBtn.className = safetyMode === "exam" ? "tab-btn active" : "tab-btn";
-  safetyModeInsightsBtn.className = safetyMode === "insights" ? "tab-btn active" : "tab-btn";
+  if (mode === "exam" || mode === "insights" || mode === "materials") {
+    safetyMode = mode;
+  } else {
+    safetyMode = "trainer";
+  }
   safetyTrainerPanelEl.classList.toggle("hidden", safetyMode !== "trainer");
   safetyExamPanelEl.classList.toggle("hidden", safetyMode !== "exam");
   safetyInsightsPanelEl.classList.toggle("hidden", safetyMode !== "insights");
+  safetyMaterialsPanelEl.classList.toggle("hidden", safetyMode !== "materials");
+  if (safetyMode === "materials") {
+    renderSafetyMaterials();
+  }
 }
 
 function renderSafetyQuestion() {
@@ -1625,6 +1691,63 @@ function renderSafetyQuestion() {
   safetyExplanationWrapEl.open = false;
   safetyPrevBtn.disabled = safetyIndex === 0;
   safetyNextBtn.disabled = safetyIndex === booQuestions.length - 1;
+}
+
+function openSafetyQuestionById(id) {
+  const nextIndex = booQuestions.findIndex((q) => q.id === id);
+  if (nextIndex < 0) return;
+  safetyIndex = nextIndex;
+  renderSafetyQuestion();
+  setActiveBank("safety");
+  setActiveMode("trainer");
+}
+
+function renderSafetyMaterials() {
+  safetyMaterialsListEl.innerHTML = "";
+  if (!booQuestions.length) {
+    const empty = document.createElement("p");
+    empty.className = "text-sm text-appmuted";
+    empty.textContent = "Материалы недоступны: банк БОО не загружен.";
+    safetyMaterialsListEl.appendChild(empty);
+    return;
+  }
+
+  for (const q of booQuestions) {
+    const row = document.createElement("article");
+    row.className = "rounded-lg border border-slate-700 bg-slate-900/30 p-3";
+
+    const head = document.createElement("div");
+    head.className = "flex flex-wrap items-center justify-between gap-2";
+
+    const title = document.createElement("strong");
+    title.className = "text-sm font-semibold";
+    title.textContent = q.text;
+
+    const id = document.createElement("span");
+    id.className = "text-xs text-appmuted";
+    id.textContent = `#${q.id}`;
+
+    const answer = document.createElement("p");
+    answer.className = "mt-2 text-sm";
+    answer.textContent = `Правильный ответ: ${q.answers[q.correctIndex]}`;
+
+    const explanation = document.createElement("p");
+    explanation.className = "mt-2 whitespace-pre-line text-sm text-appmuted";
+    explanation.textContent = q.explanation;
+
+    const actions = document.createElement("div");
+    actions.className = "mt-2";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "item-link";
+    openBtn.textContent = `К вопросу #${q.id}`;
+    openBtn.addEventListener("click", () => openSafetyQuestionById(q.id));
+    actions.appendChild(openBtn);
+
+    head.append(title, id);
+    row.append(head, answer, explanation, actions);
+    safetyMaterialsListEl.appendChild(row);
+  }
 }
 
 function shuffledBoo(items) {
@@ -1817,11 +1940,7 @@ async function bootstrap() {
     statusEl.textContent = "";
 
     tabsEl.classList.remove("hidden");
-    trainerEl.classList.remove("hidden");
-    safetyEl.classList.remove("hidden");
-    rulesEl.classList.remove("hidden");
-    examEl.classList.remove("hidden");
-    insightsEl.classList.remove("hidden");
+    modeTabsEl.classList.remove("hidden");
 
     // We keep first paint fast and postpone heavy lists until the corresponding tab is opened.
     rulesBuilt = false;
@@ -1847,7 +1966,8 @@ async function bootstrap() {
         : "Банк не загружен. Запустите: npm run update:boo",
       booQuestions.length ? "good" : "bad"
     );
-    setActiveTab("trainer");
+    setActiveBank("hunt");
+    setActiveMode("trainer");
   } catch {
     renderNotReady();
   }
@@ -1881,15 +2001,13 @@ trainerModeAntiHeurBtn.addEventListener("click", () => setTrainerMode("anti-heur
 rulesModeRuleBtn.addEventListener("click", () => setRulesMode("rule"));
 rulesModeDateBtn.addEventListener("click", () => setRulesMode("date"));
 
-tabTrainerBtn.addEventListener("click", () => setActiveTab("trainer"));
-tabSafetyBtn.addEventListener("click", () => setActiveTab("safety"));
-tabRulesBtn.addEventListener("click", () => setActiveTab("rules"));
-tabExamBtn.addEventListener("click", () => setActiveTab("exam"));
-tabInsightsBtn.addEventListener("click", () => setActiveTab("insights"));
+bankHuntBtn.addEventListener("click", () => setActiveBank("hunt"));
+bankSafetyBtn.addEventListener("click", () => setActiveBank("safety"));
+modeTrainerBtn.addEventListener("click", () => setActiveMode("trainer"));
+modeExamBtn.addEventListener("click", () => setActiveMode("exam"));
+modeMaterialsBtn.addEventListener("click", () => setActiveMode("materials"));
+modeInsightsBtn.addEventListener("click", () => setActiveMode("insights"));
 
-safetyModeTrainerBtn.addEventListener("click", () => setSafetyMode("trainer"));
-safetyModeExamBtn.addEventListener("click", () => setSafetyMode("exam"));
-safetyModeInsightsBtn.addEventListener("click", () => setSafetyMode("insights"));
 safetyPrevBtn.addEventListener("click", () => {
   if (safetyIndex > 0) {
     safetyIndex -= 1;
